@@ -1,0 +1,24 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">New category</p>
+      </div>
+      <form method="post" action="{% url 'new_category' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" aria-describedby="nameHelp" placeholder="Enter name">
+            {{ form.name.errors }}
+         </div>
+         <input type="hidden" id="{{ form.csettings.id_for_label }}" name="{{ form.csettings.html_name }}" value="none">
+         <button type="submit" class="btn btn-primary">Create</button>
+      </form>
+   </div>
+</div>
+</div>
+
+{% endblock %}

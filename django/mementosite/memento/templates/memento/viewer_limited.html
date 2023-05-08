@@ -1,0 +1,121 @@
+{% extends "memento/base_generic.html" %}
+
+
+{% block content %}
+
+{% load static %}
+
+<script>
+function loadAnnotation(annotation_id, category_id) {
+    var downloadingImage = new Image();
+    downloadingImage.onload = function() {
+        $("#simple-image").attr("src", this.src);
+        var ratioImg = this.width / this.height;
+        if (ratioImg < 1.0) {
+            $("#simple-image").height($("#canvas-div").width());
+            $("#simple-image").width(Math.floor($("#simple-image").height() * ratioImg));
+        } else {
+            $("#simple-image").width($("#canvas-div").width());
+            $("#simple-image").height(Math.floor($("#simple-image").width() / ratioImg));
+        }
+    };
+    downloadingImage.src = "media/" + allowed_images['' + category_id]['' + annotation_id] + '/none';
+}
+
+function loadCategory(category_id) {
+    $.ajax({url: "{% url 'annotations_limited' %}?category_id=" + category_id, success: function(result){
+        annotations = result.split("###");
+        option = '';
+        for (i = 0; i < annotations.length; i++) {
+            allowed_images[category_id][annotations[i].split(":")[0]] = annotations[i].split(":")[2];
+	    option += '<option value="'+ annotations[i].split(":")[0] + '">' + annotations[i].split(":")[1] + '</option>';
+        } 
+        $('#annotationslist').html(option);
+        loadAnnotation($("#annotationslist:first").val(), $("#categorieslist").val());
+    }});
+}
+
+var allowed_images = {};
+var category_names = {};
+var annotation_names = {};
+{% for category in request.session.allowed_categories %}
+    allowed_images["{{category.id}}"] = {};
+    category_names["{{category.id}}"] = "{{category.name}}";
+{% endfor %}
+{% for annotation in request.session.allowed_annotations %}
+    allowed_images["{{ request.session.selected_project_category_id }}"]["{{annotation.id}}"] = "{{annotation.image_id}}";
+    annotation_names["{{annotation.id}}"] = "{{annotation.name}}";
+{% endfor %}
+
+$(document).ready(function () {
+    if (window.innerWidth >= 1000) {
+        window.location = window.location.href.replace("viewer_limited","viewer");
+    }
+
+    $("#canvas-div").css("max-width", window.innerWidth - 30);
+    $("#canvas-div").width(window.innerWidth - 30);
+
+    var option = '';
+    var keys = Object.keys(category_names);
+    keys.forEach((key, index) => {
+        option += '<option value="'+ key + '">' + category_names[key] + '</option>';
+    });
+    $('#categorieslist').html(option);
+
+    $('#categorieslist').on('change', function() {
+        loadCategory($("#categorieslist").val());
+    });
+
+    $('#annotationslist').on('change', function() {
+        loadAnnotation($("#annotationslist").val(), $("#categorieslist").val());
+    });
+
+    {% if not request.session.selected_share %}
+    loadCategory("{{ request.session.selected_project_category_id }}");
+    {% else %}
+    option = '';
+    keys = Object.keys(allowed_images["{{ request.session.selected_project_category_id }}"]);
+    keys.forEach((key, index) => {
+        option += '<option value="'+ key + '">' + annotation_names[key] + '</option>';
+    });
+    $('#annotationslist').html(option);
+    var iniAnnotation = '{{ request.session.selected_project_annotation_id }}'; 
+    loadAnnotation(iniAnnotation, "{{ request.session.selected_project_category_id }}");
+    {% endif %}
+});
+</script>
+
+<div class="viewer">
+   <nav class="navbar sticky-top navbar-memento">
+      <div class="container-fluid">
+         <a class="navbar-brand" href="/memento">
+            <img src="{% static 'images/logo.png' %}" width="30" height="30" alt="logo">
+         </a>
+         <div style="display:flex">
+            {% if request.user.is_authenticated %}
+            <a class="navbar-userlink" href="{% url 'change_password' %}">{{ user.get_username }}</a>
+            {% else %}
+            <p class="field-value black">guest</p>
+            {% endif %}
+            <a href="{% url 'logout_user' %}"<i class="material-icons-outlined black" title="logout" style="margin-left:5px">logout</i></a>
+         </div>
+      </div>
+   </nav>
+   <div id="viewer-content-central" class="viewer-content-central">
+      <div id="canvas-menu-limited">
+         <select id="categorieslist" class="form-control form-control-sm">
+         </select>
+         <select id="annotationslist" class="form-control form-control-sm" style="margin-left:5px">
+         </select>
+      </div>
+      <div id="canvas-div" class="viewer-content-height">
+         <div id="image-wrapper" class="d-flex" style="justify-content:center;align-items:center">
+             <div style="text-align:center">
+                <img id="simple-image" src="">
+             </div>
+         </div>
+      </div>
+   </div>
+</div>
+
+{% endblock %}

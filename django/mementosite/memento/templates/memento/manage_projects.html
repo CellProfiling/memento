@@ -1,0 +1,48 @@
+{% extends "memento/base_main.html" %}
+
+
+{% block main-content %}
+<script>
+function manage_projects_goToURL() {
+   window.location.href = '{%url 'edit_project' %}' + '?project_id=' + $( "#selected_project" ).val();
+}
+</script>
+
+<div class="main-container">
+<div class="main-container-options">
+   {% if projects %}
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Manage project</p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p>Manage an existing project</p>
+            <select class="form-control" id="selected_project" name="selected_project">
+               {% for project in projects %}
+               <option value="{{ project.id }}">{{ project.name }}</option>
+               {% endfor %}
+            </select>
+            <a href="#"><i class="material-icons-outlined main-container-category-icon" onclick="manage_projects_goToURL()">dashboard</i></a>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento">
+      </div>
+   </div>
+   {% endif %}
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">New project</p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p>Create a new project</p>
+            <a href="{%url 'new_project' %}"><i class="material-icons-outlined main-container-category-icon">dashboard_customize</i></a>
+         </div>
+      </div>
+   </div>
+</div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<script>
+function verifyForm() {
+   if ($( "#id_name" ).val() != '') {
+      $( "form" ).first().submit();
+   } else {
+      alert("Name field is required");
+   }
+}
+</script>
+
+<div id="page-content" class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">New image</p>
+      </div>
+      <form method="post" action="{% url 'new_image' %}" enctype ="multipart/form-data">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input id="id_name" type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" aria-describedby="nameHelp" placeholder="Enter name">
+         </div>
+         <div class="container-category-items">
+            <div>
+               <p><span class="field-title">Upload image</span>
+            </div>
+         </div>
+         <div class="form-group">
+            <select class="form-control" id="{{ form.format.id_for_label }}" name="{{ form.format.html_name }}">
+               {% for format in formats %}
+               <option value="{{ format.id }}" {% if format.id == 1 %}selected="selected"{% endif %}>{{ format.description }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div class="form-group">
+            <input type="file"  id="{{ form.file.id_for_label }}" name="{{ form.file.html_name }}">
+         </div>
+         <div class="container-category-items">
+            <div>
+               <p><span class="field-title">OR</span>
+            </div>
+         </div>
+         <div class="form-group">
+            <label for="{{ form.url.id_for_label }}">Write remote URL</label>
+            <input type="url" class="form-control" id="{{ form.url.id_for_label }}" name="{{ form.url.html_name }}" aria-describedby="urlHelp" placeholder="Enter URL">
+         </div>
+         <button type="button" class="btn btn-primary" onclick="verifyForm()">Create</button>
+      </form>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+   </div>
+   <div class="container-category">
+      <div class="fileprogress">
+         <div class="bar"></div >
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+   </div>
+   <div class="container-category">
+      <div id="processing" style="display:none">
+         <div class="loader">
+            <p class="field-title">Processing image<span class="loader__dot">.</span><span class="loader__dot">.</span><span class="loader__dot">.</span></p>
+         </div>
+      </div>
+   </div>
+</div>
+</div>
+
+<script>
+(function() {
+    
+var bar = $('.bar');
+   
+$('form').ajaxForm({
+    beforeSend: function() {
+        var percentVal = '0%';
+        bar.width(percentVal);
+    },
+    uploadProgress: function(event, position, total, percentComplete) {
+        var percentVal = percentComplete + '%';
+        bar.width(percentVal);
+        if (percentComplete >= 100) {
+           $("#processing").show();
+        }
+    },
+    success: function() {
+        var percentVal = '100%';
+        bar.width(percentVal);
+    },
+    complete: function(xhr) {
+       $( "#page-content" ).html( xhr.responseText );
+    }
+}); 
+
+})();       
+</script>
+
+{% endblock %}
+

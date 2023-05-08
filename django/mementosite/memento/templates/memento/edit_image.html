@@ -1,0 +1,50 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<script>
+function edit_image_remove_goToURL() {
+   if (confirm("This will permanently remove all project data related to this image. Are you sure you want to continue?")) {
+      window.location.href = '{% url 'delete_image' %}';
+   }
+}
+</script>
+
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Edit image</p>
+      </div>
+      <div>
+         {% load static %}
+         <img src="media/{{ request.session.selected_project_image_id }}/thumb">
+      </div>
+      {% if image_type == 'E' %}
+      <div>
+         <a target="_blank" href="{{ image_uri }}"><p class="field-value">{{ image_uri }}</p></a>
+      </div>
+      {% endif %}
+      <form method="post" action="{% url 'edit_image' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" value="{{ form.name.value }}" aria-describedby="nameHelp">
+            {{ form.name.errors }}
+         </div>
+         <button type="submit" class="btn btn-primary">Update</button>
+      </form>
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title"></p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_image_remove_goToURL()">Remove image</button>
+         </div>
+      </div>
+   </div>
+</div>
+</div>
+
+{% endblock %}

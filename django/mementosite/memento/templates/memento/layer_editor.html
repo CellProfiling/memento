@@ -1,0 +1,243 @@
+<div class="layer-grid">
+   <div id="layer-begin-block" style="text-align:left">
+      <i id="layerlistCollapse" class="material-icons-outlined expand-icon white">keyboard_arrow_right</i>
+   </div>
+   {% for layer in layers reversed %}
+   <div id="layer-block{{ layer.id }}" class="layer-block layer-elem{% if forloop.last %} imagelist-active{% endif %}" {% if layer.active %}image="1"{% else %}image="0"{% endif %} parent_id="{{ layer.parent_id }}">
+      <button id="layer-visible{{ layer.id }}" type="button" class="btn btn-primary layer-btn" style="margin:5px{% if layer.parent_id > 0 %};margin-left:34px{% endif %}" onclick="toggleLayer({{ layer.id }})"><i class="material-icons-outlined">visibility</i></button>
+      {% if not layer.active and layer.parent_id == 0 and layer.data != '' %}
+      <button type="button" class="btn btn-danger layer-btn" style="margin:5px" {% if layer.is_owner %}onclick="deleteLayer({{ layer.id }})"{% else %}disabled{% endif %}><i class="material-icons-outlined">layers_clear</i></button>
+      {% endif %}
+      <a href="#" onclick="selectLayer({{ layer.id }})"><p class="field-value" style="margin:0">{{ layer.name }}</p></a>
+      <i id="layer-comments{{ layer.id }}" class="material-icons-outlined mark-annotation" {% if layer.num_comments == 0 %}has_comments="0" style="display:none"{% else %}has_comments="1"{% endif %}>notes</i>
+   </div>
+   {% endfor %}
+   <div id="layer-end-block" class="layer-elem" style="width:100%">
+      <hr class="hr-memento">
+   </div>
+   <div>
+      <p class="field-title">Add a new layer</p>
+   </div>
+   <div class="layer-elem">
+      <input type="text" class="form-control" id="newlayer" value="...">
+      <button id="add_layer" type="button" class="btn btn-primary" style="margin-left:10px" onclick="addLayer()"><i class="material-icons-outlined">library_add</i></button>
+   </div>
+   <div class="layer-elem">
+      <hr class="hr-memento-lesser">
+   </div>
+</div>
+<script>
+   var latestCanvasLayerIdAdded = 0;
+   var group_layers = {{ group_layers|safe }};
+
+   $('#layerlistCollapse').on('click', function () {
+      $('#viewer-content-layerlist').toggle("slide", { direction: "right", complete: function() { fitMenus(); } });
+      $('#layerlistExpand').toggle({duration: 1000});
+   });
+
+   function toggleLayer(layer_id) {
+      if (visibilityExclusive && $("#layer-block" + layer_id).attr("image") == "1") {
+         if (!$("#layer-visible" + layer_id).hasClass("btn-primary")) {
+            $("#layer-visible" + layer_id).removeClass("btn-secondary").addClass("btn-primary");
+            if (canvasArray[0].canvas_id == layer_id) {
+               $("#canvas-image").parent().parent().show();
+            } else {
+               $("#canvas-layer" + layer_id).parent().parent().show();
+            }
+            $("#layer-visible" + layer_id).children().first().html("visibility");
+
+            $("#layer-visible" + canvasArray[currLayer].canvas_id).removeClass("btn-primary").addClass("btn-secondary");
+            $("#layer-visible" + canvasArray[currLayer].canvas_id).children().first().html("visibility_off");
+            if (currLayer == 0) {
+               $("#canvas-image").parent().parent().hide();
+            } else {
+               $("#canvas-layer" + canvasArray[currLayer].canvas_id).parent().parent().hide();
+            }
+            selectLayer(layer_id);
+         }
+      } else if (visibilityGroupExclusive && group_layers.includes(layer_id)) {
+         if (!$("#layer-visible" + layer_id).hasClass("btn-primary")) {
+            $('[id^="layer-block"]').each(function(i, obj) {
+               var curr_layer_id = obj.id.substring(11);
+               $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+               $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+               $("#canvas-layer" + curr_layer_id).parent().parent().hide();
+            });
+            $("#layer-visible" + layer_id).removeClass("btn-secondary").addClass("btn-primary");
+            $("#layer-visible" + layer_id).children().first().html("visibility");
+            if (canvasArray[0].canvas_id == layer_id) {
+               $("#canvas-image").parent().parent().show();
+            } else {
+               $("#canvas-layer" + layer_id).parent().parent().show();
+            }
+            $('.layer-block[parent_id=' + layer_id + ']').each(function(i, obj) {
+               var sub_layer_id = obj.id.substring(11);
+               $("#layer-visible" + sub_layer_id).removeClass("btn-secondary").addClass("btn-primary");
+               $("#layer-visible" + sub_layer_id).children().first().html("visibility");
+               if (canvasArray[0].canvas_id == sub_layer_id) {
+                  $("#canvas-image").parent().parent().show();
+               } else {
+                  $("#canvas-layer" + sub_layer_id).parent().parent().show();
+               }
+            });
+            selectLayer(layer_id);
+         }
+      } else {
+         if ($("#layer-visible" + layer_id).hasClass("btn-primary")) {
+            $("#layer-visible" + layer_id).removeClass("btn-primary").addClass("btn-secondary");
+            $("#layer-visible" + layer_id).children().first().html("visibility_off");
+            if (canvasArray[0].canvas_id == layer_id) {
+               $("#canvas-image").parent().parent().hide();
+            } else {
+               $("#canvas-layer" + layer_id).parent().parent().hide();
+            }
+            if (canvasArray[currLayer].canvas_id == layer_id) {
+               selectLayer(canvasArray[0].canvas_id);
+            }
+            $('.layer-block[parent_id=' + layer_id + ']').each(function(i, obj) {
+               var sub_layer_id = obj.id.substring(11);
+               $("#layer-visible" + sub_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+               $("#layer-visible" + sub_layer_id).children().first().html("visibility_off");
+               if (canvasArray[0].canvas_id == sub_layer_id) {
+                  $("#canvas-image").parent().parent().hide();
+               } else {
+                  $("#canvas-layer" + sub_layer_id).parent().parent().hide();
+               }
+            });
+         } else {
+            $("#layer-visible" + layer_id).removeClass("btn-secondary").addClass("btn-primary");
+            $("#layer-visible" + layer_id).children().first().html("visibility");
+            if (canvasArray[0].canvas_id == layer_id) {
+               $("#canvas-image").parent().parent().show();
+            } else {
+               $("#canvas-layer" + layer_id).parent().parent().show();
+            }
+            $('.layer-block[parent_id=' + layer_id + ']').each(function(i, obj) {
+               var sub_layer_id = obj.id.substring(11);
+               $("#layer-visible" + sub_layer_id).removeClass("btn-secondary").addClass("btn-primary");
+               $("#layer-visible" + sub_layer_id).children().first().html("visibility");
+               if (canvasArray[0].canvas_id == sub_layer_id) {
+                  $("#canvas-image").parent().parent().show();
+               } else {
+                  $("#canvas-layer" + sub_layer_id).parent().parent().show();
+               }
+            });
+         }
+      }
+   }
+
+   function selectLayer(layer_id) {
+      if (canvasArray[0].canvas_id == layer_id || $("#layer-visible" + layer_id).hasClass("btn-primary")) {
+         $("#layer-block" + layer_id).siblings().removeClass("imagelist-active");
+         $("#layer-block" + layer_id).addClass("imagelist-active");
+         loadCommentEditor({{ request.session.selected_project_annotation_id }}, layer_id);
+         if (!canvasArray[currLayer].isImage) {
+             toggle_drawPolygon('deactivate');
+         }
+         deactivateLayer(currLayer);
+         for (i = 0; i < canvasArray.length; i++) {
+             if (canvasArray[i].canvas_id == layer_id) {
+                 currLayer = i;
+                 break;
+             }
+         }
+         activateLayer(currLayer);
+      }
+   }
+
+   function addLayer() {
+      $.ajax({url: "{% url 'new_layer_viewer' %}?name=" + $('#newlayer').val(), success: function(result){
+         if (result == "nok") {
+            $("#add_layer").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+            $("#add_layer").addClass("btn-danger").delay(1000).queue(function(){$("#add_layer").removeClass("btn-danger").addClass("btn-primary").dequeue();});
+         } else {
+            $("#add_layer").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+            $("#add_layer").addClass("btn-success").delay(1000).queue(function(){$("#add_layer").removeClass("btn-success").addClass("btn-primary").dequeue();});
+            $("<div id=\"layer-block" +
+               result +
+               "\" class=\"layer-elem\"><button id=\"layer-visible" +
+               result + "\" type=\"button\" class=\"btn btn-primary layer-btn\" style=\"margin:5px\" onclick=\"toggleLayer(" + 
+               result +
+               ")\"><i class=\"material-icons-outlined\">visibility</i></button><button type=\"button\" class=\"btn btn-danger layer-btn\" style=\"margin:5px\" onclick=\"deleteLayer(" +
+               result +
+               ")\"><i class=\"material-icons-outlined\">layers_clear</i></button><a href=\"#\" onclick=\"selectLayer(" +
+               result +
+               ")\"><p class=\"field-value\" style=\"margin:0\">" +
+               $("#newlayer").val() +
+               "</p></a><i id=\"layer-comments" +
+               result +
+               "\" class=\"material-icons-outlined mark-annotation\" style=\"display:none\">notes</i></div>").insertAfter( $( "#layer-begin-block" ) );
+            $("#newlayer").val("...");
+            var newCanvasLayerDiv = "<div class=\"canvas-wrapper\" style=\"pointer-events:none\"><canvas id=\"canvas-layer" + result + "\" style=\"position:absolute;top:0;left:0;z-index: " + (1 + $('[id^="canvas-layer"]').length) + "\"></canvas></div>";
+            if ($('[id^="canvas-layer"]').length) {
+               $(newCanvasLayerDiv).insertAfter($('[id^="canvas-layer"]').last().parent().parent());
+            } else {
+               $(newCanvasLayerDiv).insertBefore($("#canvas-image").parent().parent());
+            }
+            $("#canvas-layer" + result).width($('#canvas-div').width());
+            $("#canvas-layer" + result).height($('#canvas-div').height());
+            latestCanvasLayerIdAdded = result;
+            setTimeout(function(){ 
+               var canvas = new fabric.Canvas(document.getElementById("canvas-layer" + latestCanvasLayerIdAdded));
+               canvas.setDimensions({
+                  width: $('#canvas-div').width(),
+                  height: $('#canvas-div').height()
+               });
+               canvas.zoomToPoint({ x: $('#canvas-div').width() / 2, y: $('#canvas-div').height() / 2 }, canvasArray[0].getZoom());
+               var basevpt = canvasArray[0].viewportTransform;
+               var vpt = canvas.viewportTransform;
+               vpt[4] = basevpt[4];
+               vpt[5] = basevpt[5];
+               canvas.setViewportTransform(canvas.viewportTransform);
+               canvas.requestRenderAll();
+               canvas.set('canvas_id', latestCanvasLayerIdAdded);
+               canvasArray.push(canvas);
+            }, 500);
+         }
+      }});
+   }
+
+   function deleteLayer(layer_id) {
+      if (confirm('This will permanently remove all layer data. Are you sure you want to continue?')) {
+         $.ajax({url: "{% url 'delete_layer_viewer' %}?layer_id=" + layer_id, success: function(result){
+            if (result == "ok") {
+               selectLayer({{ request.session.selected_project_layer_id }});
+               $("#layer-block" + layer_id).remove();
+               $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").hide();
+               $('[id^="layer-comments"]').each(function(i, obj) {
+                  if ($(obj).is(":visible")) {
+                     $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").show();
+                  }
+               });
+               for (i = 0; i < canvasArray.length; i++) {
+                  if (canvasArray[i].canvas_id == layer_id) {
+                      canvasArray.splice(i, 1);
+                  }
+               }
+               $('#canvas-layer' + layer_id).parent().remove();
+            }
+         }});
+      }
+   }
+
+   if (visibilityExclusive == 1) {
+      $('[id^="layer-block"]').each(function(i, obj) {
+         if (!$(obj).hasClass("imagelist-active") && $(obj).attr("image") == "1") {
+            var curr_layer_id = obj.id.substring(11);
+            $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+            $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+            $("#canvas-layer" + curr_layer_id).parent().parent().hide();
+         }
+      });
+   } else if (visibilityGroupExclusive == 1 && group_layers.length > 0) {
+      $('[id^="layer-block"]').each(function(i, obj) {
+         if (!$(obj).hasClass("imagelist-active") && $(obj).attr("id") != ("layer-block" + group_layers[0]) && $(obj).attr("parent_id") != ("" + group_layers[0])) {
+            var curr_layer_id = obj.id.substring(11);
+            $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+            $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+            $("#canvas-layer" + curr_layer_id).parent().parent().hide();
+         }
+      });
+   }
+</script>
+

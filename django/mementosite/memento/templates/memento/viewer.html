@@ -1,0 +1,401 @@
+{% extends "memento/base_generic.html" %}
+
+
+{% block content %}
+
+{% load static %}
+
+<script>
+var ajaxImageEditor, ajaxLayerEditor, ajaxAnnotationEditor, ajaxCommentEditor;
+
+function loadImageEditor(annotation_id) {
+    $("#canvas-div").html($("#loading").html());
+    ajaxImageEditor = $.ajax({url: "{% url 'image_editor' %}?annotation_id=" + annotation_id, success: function(data, responseCode, xhr){
+       if (ajaxImageEditor == xhr) {
+          $("#canvas-div").html(data);
+          fitMenus();
+          toggle_darkmode(darkmode);
+          {% if expandannotation %}
+          $('#labellistExpand').toggle();
+          {% endif %}
+          {% if expandlayer %}
+          $('#layerlistExpand').toggle();
+          {% endif %}
+          {% if expandcomment %}
+          $('#commentlistExpand').toggle();
+          {% endif %}
+          if (loadingNext == 0) {
+             $("#next_option_button").removeClass("btn-warning");
+             $("#next_option_button").addClass("btn-primary");
+          }
+       }
+    }});
+}
+
+function loadLayerEditor(annotation_id, layer_id) {
+    ajaxLayerEditor = $.ajax({url: "{% url 'layer_editor' %}?annotation_id=" + annotation_id + "&layer_id=" + layer_id, success: function(data, responseCode, xhr){
+       if (ajaxLayerEditor == xhr) {
+          $("#layers-div").html(data);
+          fitMenus();
+          {% if expandlayer %}
+          $('#viewer-content-layerlist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+          {% endif %}
+       }
+    }});
+}
+
+function loadAnnotationEditor(annotation_id) {
+    ajaxAnnotationEditor = $.ajax({url: "{% url 'annotation_editor' %}?annotation_id=" + annotation_id, success: function(data, responseCode, xhr){
+       if (ajaxAnnotationEditor == xhr) {
+          $("#annotations-div").html(data);
+          fitMenus();
+          {% if expandannotation %}
+          $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+          {% endif %}
+       }
+    }});
+}
+
+function loadClassificationEditor(category_id) {
+    ajaxAnnotationEditor = $.ajax({url: "{% url 'classification_editor' %}?category_id=" + category_id, success: function(data, responseCode, xhr){
+       if (ajaxAnnotationEditor == xhr) {
+          $("#annotations-div").html(data);
+          $("#canvas-menu-labellist").show();
+          {% if expandclassification %}
+          $('#labellistExpand').toggle();
+          $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+          {% endif %}
+          fitMenus();
+       }
+    }});
+}
+
+function loadCommentEditor(annotation_id, layer_id) {
+    ajaxCommentEditor = $.ajax({url: "{% url 'comment_editor' %}?annotation_id=" + annotation_id + "&layer_id=" + layer_id, success: function(data, responseCode, xhr){
+       if (ajaxCommentEditor == xhr) {
+          $("#comments-div").html(data);
+          fitMenus();
+          fitComments();
+          {% if expandcomment %}
+          $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+          {% endif %}
+       }
+    }});
+}
+
+var currCategory = 0;
+var loadingAnnotation = 0;
+var loadingNext = 0;
+
+function loadCategory(category_id) {
+    $("#catSubmenu" + currCategory).collapse('hide');
+    $("#catSubmenu" + currCategory).html('');
+
+    if ($('#viewer-content-labellist').length > 0) {
+       $('#viewer-content-labellist').hide();
+    }
+    if ($('#viewer-content-layerlist').length > 0) {
+       $('#viewer-content-layerlist').hide();
+    }
+    if ($('#viewer-content-commentlist').length > 0) {
+       $('#viewer-content-commentlist').hide();
+    }
+    $("li").removeClass("imagelist-active");
+    $("#listCategory" + category_id).addClass('imagelist-active');
+    currCategory = category_id;
+    $("#canvas-div").html($("#loading").html());
+    $.ajax({url: "{% url 'image_grid' %}?category_id=" + category_id, success: function(result){
+       $("#canvas-div").html(result);
+       if (loadingAnnotation == 0) {
+          {% if request.session.has_classifications %}
+          loadClassificationEditor(currCategory);
+          {% endif %}
+          fitMenus();
+          toggle_darkmode(darkmode);
+       } else {
+          loadAnnotation(loadingAnnotation, currCategory);
+       }
+       $("#catSubmenu" + currCategory).collapse('show');
+    }});
+    $("#imagelistCollapse").hide();
+}
+
+function loadAnnotation(annotation_id, category_id) {
+    if (currCategory == category_id) {
+       if ($('#viewer-content-labellist').length > 0) {
+          $('#viewer-content-labellist').hide();
+       }
+       if ($('#viewer-content-layerlist').length > 0) {
+          $('#viewer-content-layerlist').hide();
+       }
+       if ($('#viewer-content-commentlist').length > 0) {
+          $('#viewer-content-commentlist').hide();
+       }
+       $("li").removeClass("imagelist-active");
+       $("#listCategory" + category_id).addClass('imagelist-active');
+       $("#catSubmenu" + category_id).collapse('show');
+       $("#listAnnotation" + annotation_id).addClass('imagelist-active');
+       scrollElement = document.getElementById("listAnnotation" + annotation_id);
+       scrollElement.scrollIntoView();
+       loadImageEditor(annotation_id);
+       loadLayerEditor(annotation_id, 0);
+       loadAnnotationEditor(annotation_id);
+       loadCommentEditor(annotation_id, 0);
+       $("#imagelistCollapse").show();
+       loadingAnnotation = 0;
+   } else {
+       loadingAnnotation = annotation_id;
+       loadCategory(category_id);
+   }
+}
+
+function fitMenus() {
+   var maxCentralWidth = $( window ).width() - 10;
+   if ($("#viewer-content-imagelist").is(":visible")) {
+      if ($('#viewer-content-layerlist').length > 0 && $("#viewer-content-layerlist").is(":visible")) {
+         maxCentralWidth = maxCentralWidth - 500;
+      } else {
+         maxCentralWidth = maxCentralWidth - 250;
+      }
+      $('#viewer-content-labellist').css("margin-left", "250px");
+      $('#viewer-content-commentlist').css("margin-left", "250px");
+   } else {
+      if ($('#viewer-content-layerlist').length > 0 && $("#viewer-content-layerlist").is(":visible")) {
+         maxCentralWidth = maxCentralWidth - 250;
+      } 
+      $('#viewer-content-labellist').css("margin-left", "0px");
+      $('#viewer-content-commentlist').css("margin-left", "0px");
+   }
+   if ($('#viewer-content-labellist').length > 0) {
+      $('#viewer-content-labellist').width(maxCentralWidth);
+      if ($("#viewer-content-labellist").is(":visible")) {
+         $('#canvas-menu-actions').css("top", $('#viewer-content-labellist').height() + 10);
+         $('#canvas-menu-info').css("top", $('#viewer-content-labellist').height() + 10);
+         $('#canvas-menu-subactions').css("top", $('#viewer-content-labellist').height() + 40);
+         $('#canvas-roi-table').css("top", $('#viewer-content-labellist').height() + 10);
+      } else {
+         $('#canvas-menu-actions').css("top", "10px");
+         $('#canvas-menu-info').css("top", "10px");
+         $('#canvas-menu-subactions').css("top", "40px");
+         $('#canvas-roi-table').css("top", "10px");
+      }
+   }
+   if ($('#viewer-content-commentlist').length > 0) {
+      $('#viewer-content-commentlist').width(maxCentralWidth);
+   }
+}
+
+var next_annotations = [];
+var currAnnotation = -1;
+
+function goto_next_annotation() {
+   if (!$("#next_option_button").hasClass("btn-warning")) {
+      $("#next_option_button").removeClass("btn-primary");
+      $("#next_option_button").addClass("btn-warning");
+      currAnnotation = currAnnotation + 1;
+      if (currAnnotation >= next_annotations.length) {
+         currAnnotation = 0;
+      }
+      loadAnnotation(next_annotations[currAnnotation].split("-")[1], next_annotations[currAnnotation].split("-")[0]);
+   }
+}
+
+function remove_next_annotation(category_id, annotation_id) {
+   var submitted_annotation = category_id + '-' + annotation_id;
+   if (next_annotations.includes(submitted_annotation)) {
+      for(var i = 0; i < next_annotations.length; i++) { 
+         if (next_annotations[i] == submitted_annotation) { 
+            next_annotations.splice(i, 1);
+            currAnnotation = currAnnotation - 1;
+            $("#mark-annotation" + submitted_annotation).hide();
+            break; 
+         }
+      }
+   }
+   if (next_annotations.length == 0) {
+      $("#next_option").hide();
+   }
+}
+
+function load_next_annotations() {
+   loadingNext = 1;
+   $("#next_option_button").removeClass("btn-primary");
+   $("#next_option_button").addClass("btn-warning");
+   $.ajax({url: "{% url 'next_annotation' %}", success: function(result){
+      if (result == '') {
+         $("#next_option").hide();
+      } else {
+         next_annotations = result.split(",");
+      }
+      loadingNext = 0;
+      $("#next_option_button").removeClass("btn-warning");
+      $("#next_option_button").addClass("btn-primary");
+   }});
+}
+
+var clastype = '{% if clastype %}{{ clastype }}{% else %}i{% endif %}';
+
+function update_classification(category_id, classification_id, selIcon, selLetter) {
+   if (classification_id == 0) {
+      $("#mark-classification" + category_id).hide();
+   } else {
+      if (clastype == 'i') {
+         $("#mark-classification" + category_id).html("<i class=\"material-icons-outlined\" style=\"vertical-align:middle\">" + selIcon + "</i>");
+      } else {
+         $("#mark-classification" + category_id).html(selLetter);
+      }
+      $("#mark-classification" + category_id).show();
+   }
+}
+
+var darkmode = {% if darkmode %}{{ darkmode }}{% else %}0{% endif %};
+
+function toggle_darkmode(action) {
+
+   if (action == 0 || action == -1 && darkmode == 1) {
+      $("#viewer-content-central").css("background-color", "#f1f1f1!important");
+      $("#imagelistExpand").css("color", "#000000!important");
+      $("#labellistExpand").css("color", "#000000!important");
+      $("#layerlistExpand").css("color", "#000000!important");
+      $("#commentlistExpand").css("color", "#000000!important");
+      $("#canvas-menu-info").css("color", "#000000!important");
+      $("#canvas-menu-subactions").css("color", "#000000!important");
+      $("#image-grid").css("color", "#000000!important");
+      darkmode = 0;
+   } else {
+      $("#viewer-content-central").css("background-color", "#000000!important");
+      $("#imagelistExpand").css("color", "#ffffff!important");
+      $("#labellistExpand").css("color", "#ffffff!important");
+      $("#layerlistExpand").css("color", "#ffffff!important");
+      $("#commentlistExpand").css("color", "#ffffff!important");
+      $("#canvas-menu-info").css("color", "#ffffff!important");
+      $("#canvas-menu-subactions").css("color", "#ffffff!important");
+      $("#image-grid").css("color", "#ffffff!important");
+      darkmode = 1;
+   }
+}
+
+function keyDownAnnotation(e) {
+   var labelOption = e.keyCode - 48;
+   if ($('#viewer-content-labellist').length > 0 && $("#viewer-content-labellist").is(":visible")) {
+       annotation_option = $('button[annotation_option="' + labelOption + '"]');
+       if (annotation_option.length > 0) {
+           toggleLabel(annotation_option[0].id.replace('label', ''));
+           toggleLabel(annotation_option[0].id);
+           submitAnnotation();        
+           goto_next_annotation();
+       }
+       if (labelOption == 30) {          
+           goto_next_annotation();
+       }
+   }
+}
+
+function keyDownGroupLayer(e) {
+   console.log();
+   if (e.shiftKey) {
+      if ($('#viewer-content-layerlist').length > 0 && $("#viewer-content-layerlist").is(":visible")) {
+          var groupLayerOption = e.keyCode - 48;
+          if (groupLayerOption > 0 && group_layers.length >= groupLayerOption) {
+              toggleLayer(group_layers[groupLayerOption - 1]);
+          }
+      }
+   }
+}
+
+var visibilityExclusive = {% if visibilityexclusive %}{{ visibilityexclusive }}{% else %}0{% endif %};
+var visibilityGroupExclusive = {% if visibilitygroupexclusive %}{{ visibilitygroupexclusive }}{% else %}0{% endif %};
+
+$(document).ready(function () {
+    if (window.innerWidth < 1000) {
+        window.location = window.location.href.replace("viewer","viewer_limited");
+    }
+    $('#imagelistCollapse').on('click', function () {
+        $('#viewer-content-imagelist').toggle("slide", { direction: "left", complete: function() { fitMenus(); } });
+        $('#imagelistExpand').toggle({duration: 1000});
+    });
+
+    currCategory = {{ selected_category_id }};
+
+    {% if not request.session.selected_share %}
+        loadCategory({{ selected_category_id }});
+    {% else %}
+        loadAnnotation({{ request.session.selected_project_annotation_id }}, {{ request.session.selected_project_category_id }});
+    {% endif %}
+    {% if has_to_annotate <= 0 %} 
+        $("#next_option").hide();
+    {% else %}
+        load_next_annotations();
+    {% endif %}
+    toggle_darkmode(darkmode);
+    
+    {% if fastannotation %}
+        window.addEventListener("keydown", keyDownAnnotation, false);
+    {% endif %}
+
+    {% if fastgroup %}
+        window.addEventListener("keydown", keyDownGroupLayer, false);
+    {% endif %}
+});
+</script>
+
+<div class="viewer">
+   <nav class="navbar sticky-top navbar-memento">
+      <div class="container-fluid">
+         <a class="navbar-brand" href="/memento">
+            <img src="{% static 'images/logo.png' %}" width="30" height="30" alt="logo">
+         </a>
+         <div style="display:flex">
+            {% if request.user.is_authenticated %}
+            <a class="navbar-userlink" href="{% url 'change_password' %}">{{ user.get_username }}</a>
+            {% else %}
+            <p class="field-value black">guest</p>
+            {% endif %}
+            <a href="{% url 'logout_user' %}"<i class="material-icons-outlined black" title="logout" style="margin-left:5px">logout</i></a>
+         </div>
+      </div>
+   </nav>
+   <div id="viewer-content-central" class="viewer-content-central">
+      <div id="canvas-div" class="viewer-content-height">
+      </div>
+   </div>
+   <div id="viewer-content-imagelist" class="viewer-content-imagelist viewer-content-height" {% if not selected_category_id %}style="display:none"{% endif %}>
+      <nav id="imagelist">
+         <div class="d-flex flex-row" style="align-content:center;align-items:center;min-height:48px">
+            <p class="field-title" style="flex-grow: 5;margin:auto">{{ project_name }}</p>
+            <i id="imagelistCollapse" class="material-icons-outlined expand-icon white">keyboard_arrow_left</i>
+         </div>
+         <div id="next_option" style="text-align:center">
+            <button id="next_option_button" type="button" class="btn btn-primary" style="margin:10px" onclick="goto_next_annotation();">Next</button>
+         </div>
+         <ul id="listProject" class="list-unstyled">
+         {% for category in request.session.allowed_categories %}
+            <li id="listCategory{{ category.id }}" class="imagelist-row {% if forloop.first %} imagelist-active{% endif %}">
+               <div class="d-flex flex-row" style="align-content:center;align-items:center">
+                  <a id="categoryLink{{ category.id }}" href="#" {% if not request.session.selected_share %}onclick="loadCategory({{ category.id }})"{% endif %}><span class="field-value" style="margin:auto;vertical-align:middle">{{ category.name }}</span><span id="mark-classification{{ category.id }}" class="yellow-selected" style="font-size:24px;white-space:nowrap;margin-left:5px;vertical-align:middle;{% if not category.classification %}display:none">{% else %}">{% if clastype == 'l' %}{{category.classification}}{% else %}<i class="material-icons-outlined" style="vertical-align:middle">{{category.classification}}</i>{% endif %}{% endif %}</span></a>
+               </div>                
+               <ul class="collapse list-unstyled imagelist-list" id="catSubmenu{{ category.id }}">
+               </ul>
+            </li>
+         {% endfor %}
+         </ul>
+      </nav>
+   </div>
+   <div id="viewer-content-layerlist" class="viewer-content-layerlist viewer-content-height" style="display:none">
+      <div id="layers-div"></div>
+   </div>
+   <div id="viewer-content-labellist" class="viewer-content-labellist" style="display:none">
+      <div id="annotations-div"></div>
+   </div>
+   <div id="viewer-content-commentlist" class="viewer-content-commentlist" style="display:none">
+      <div id="comments-div"></div>
+   </div>
+</div>
+
+
+<div id="loading" style="display:none">
+<div class="loader" style="position:absolute;top:50%;left:50%">
+   <p class="field-title">Loading<span class="loader__dot">.</span><span class="loader__dot">.</span><span class="loader__dot">.</span></p>
+</div>
+</div>
+{% endblock %}

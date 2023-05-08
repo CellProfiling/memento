@@ -1,0 +1,26 @@
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title {% if message_status == 'nok' %}red{% endif %}">{{ message }}</p>
+      </div>
+   </div>
+   {% if submessages %}
+   <div class="container-category">
+      <div>
+         {% for submessage in submessages %}
+         <p class="field-value">{{ submessage }}</p>
+         {% endfor %}
+      </div>
+   </div>
+   {% endif %}
+   {% for next_action in next_actions %}
+   <div class="container-category">
+      <div class="container-category-items">
+         <div>
+            <a href="{{ next_action.url }}"><p>{{ next_action.text }}</a>
+         </div>
+      </div>
+   </div>
+   {% endfor %}
+</div>
+

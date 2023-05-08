@@ -1,0 +1,53 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<script>
+function checkPasswords() {
+   if ($( "#id_password" ).val() == $( "#id_password_r" ).val()) {
+      $( "form" ).first().submit();
+   } else {
+      alert("Passwords are not equal");
+   }
+}
+</script>
+
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">New user</p>
+      </div>
+      <form method="post" action="{% url 'new_user' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            <input type="username" class="form-control" id="{{ form.username.id_for_label }}" name="{{ form.username.html_name }}" aria-describedby="usernameHelp" placeholder="Enter username">
+            {{ form.username.errors }}
+         </div>
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" aria-describedby="nameHelp" placeholder="Enter name">
+            {{ form.name.errors }}
+         </div>
+         <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            <input type="email" class="form-control" id="{{ form.email.id_for_label }}" name="{{ form.email.html_name }}" aria-describedby="emailHelp" placeholder="Enter email">
+            {{ form.email.errors }}
+         </div>
+         <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            <input type="password" class="form-control" id="{{ form.password.id_for_label }}" name="{{ form.password.html_name }}" placeholder="Enter password">
+            {{ form.password.errors }}
+         </div>
+         <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">Repeat password</label>
+            <input type="password" class="form-control" id="{{ form.password_r.id_for_label }}" name="{{ form.password_r.html_name }}" placeholder="Repeat password">
+         </div>
+         <input type="hidden" id="{{ form.usettings.id_for_label }}" name="{{ form.usettings.html_name }}" value="none">
+         <button type="button" class="btn btn-primary" onclick="checkPasswords()">Create</button>
+      </form>
+   </div>
+</div>
+</div>
+
+{% endblock %}

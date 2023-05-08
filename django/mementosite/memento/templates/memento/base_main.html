@@ -1,0 +1,27 @@
+{% extends "memento/base_generic.html" %}
+
+{% block content %}
+
+{{ block.super }}
+
+{% load static %}
+
+<div class="full-container container-fluid p-0 h-100 d-flex flex-column">
+   <nav class="navbar sticky-top navbar-memento">
+      <div class="container-fluid">
+         <a class="navbar-brand" href="/memento">
+            <img src="{% static 'images/logo.png' %}" width="30" height="30" alt="logo">
+         </a>
+         <div class="d-flex">
+            <a class="navbar-userlink" href="{% url 'change_password' %}">{{ user.get_username }}</a>
+            <a href="{% url 'logout_user' %}"<i class="material-icons-outlined black" title="logout" style="margin-left:5px">logout</i></a>
+         </div>
+      </div>
+   </nav>
+
+{% block main-content %}{% endblock %}
+
+</div>
+
+{% endblock %}
+

@@ -1,0 +1,469 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<script>
+function edit_project_add_participant_goToURL() {
+   window.location.href = '{% url 'new_participant' %}';
+}
+
+function edit_project_add_viewer_goToURL() {
+   window.location.href = '{% url 'new_viewer' %}';
+}
+
+function edit_project_add_label_goToURL() {
+   window.location.href = '{% url 'new_label' %}';
+}
+
+function edit_project_add_category_goToURL() {
+   window.location.href = '{% url 'new_category' %}';
+}
+
+function edit_project_add_classification_goToURL() {
+   window.location.href = '{% url 'new_classification' %}';
+}
+
+function edit_project_add_image_goToURL() {
+   window.location.href = '{% url 'new_image' %}';
+}
+
+function edit_project_edit_participant_goToUrl() {
+   var participantIndex = availableParticipants.indexOf($( "#participants" ).val());
+   if (participantIndex >= 0) {
+      window.location.href = '{% url 'edit_participant' %}' + '?username=' + availableParticipants[participantIndex];
+   }
+}
+
+function edit_project_edit_viewer_goToUrl() {
+   var viewerIndex = availableParticipants.indexOf($( "#viewers" ).val());
+   if (viewerIndex >= 0) {
+      window.location.href = '{% url 'edit_viewer' %}' + '?username=' + availableViewers[viewerIndex];
+   }
+}
+
+function edit_project_edit_label_goToUrl() {
+   var labelIndex = availableLabels.indexOf($( "#labels" ).val());
+   if (labelIndex >= 0) {
+      window.location.href = '{% url 'edit_label' %}' + '?label_id=' + availableLabelsIds[labelIndex];
+   }
+}
+
+function edit_project_edit_category_goToUrl() {
+   var categoryIndex = availableCategories.indexOf($( "#categories" ).val());
+   if (categoryIndex >= 0) {
+      window.location.href = '{% url 'edit_category' %}' + '?category_id=' + availableCategoriesIds[categoryIndex];
+   }
+}
+
+function edit_project_edit_classification_goToUrl() {
+   var classificationIndex = availableClassifications.indexOf($( "#classifications" ).val());
+   if (classificationIndex >= 0) {
+      window.location.href = '{% url 'edit_classification' %}' + '?classification_id=' + availableClassificationsIds[classificationIndex];
+   }
+}
+
+function edit_project_edit_image_goToUrl() {
+   var imageIndex = availableImages.indexOf($( "#images" ).val());
+   if (imageIndex >= 0) {
+      window.location.href = '{% url 'edit_image' %}' + '?image_id=' + availableImagesIds[imageIndex];
+   }
+}
+
+function export_data_goToURL(type) {
+   window.location.href = '{% url 'export_data' %}' + '?formattype=' + type;
+}
+
+function export_comments_goToURL(type) {
+   window.location.href = '{% url 'export_comments' %}';
+}
+
+function export_rois_goToURL(type) {
+   window.location.href = '{% url 'export_rois' %}';
+}
+
+function edit_project_remove_goToURL() {
+   if (confirm("This will permanently remove all project data. Are you sure you want to continue?")) {
+      window.location.href = '{% url 'delete_project' %}';
+   }
+}
+
+{% if participants and participants|length > maxlengthlist %}
+var availableParticipants = [];
+{% for participant in participants %}
+   availableParticipants.push('{{ participant.username }}');
+{% endfor %}
+{% endif %}
+{% if viewers and viewers|length > maxlengthlist %}
+var availableViewers = [];
+{% for viewer in viewers %}
+   availableViewers.push('{{ viewer.username }}');
+{% endfor %}
+{% endif %}
+{% if labels and labels|length > maxlengthlist %}
+var availableLabels = [];
+var availableLabelsIds = [];
+{% for label in labels %}
+   availableLabels.push('{{ label.name }}');
+   availableLabelsIds.push({{ label.id }});
+{% endfor %}
+{% endif %}
+{% if categories and categories|length > maxlengthlist %}
+var availableCategories = [];
+var availableCategoriesIds = [];
+{% for category in categories %}
+   availableCategories.push('{{ category.name }}');
+   availableCategoriesIds.push({{ category.id }});
+{% endfor %}
+{% endif %}
+{% if classifications and classifications|length > maxlengthlist %}
+var availableClassifications = [];
+var availableClassificationsIds = [];
+{% for classification in classifications %}
+   availableClassifications.push('{{ classification.name }}');
+   availableClassificationsIds.push({{ classification.id }});
+{% endfor %}
+{% endif %}
+{% if images and images|length > maxlengthlist %}
+var availableImages = [];
+var availableImagesIds = [];
+{% for image in images %}
+   availableImages.push('{{ image.name }}');
+   availableImagesIds.push({{ image.id }});
+{% endfor %}
+{% endif %}
+
+$( function() {
+{% if participants and participants|length > maxlengthlist %}
+   $( "#participants" ).autocomplete({
+      source: availableParticipants
+    });
+{% endif %}
+{% if viewers and viewers|length > maxlengthlist %}
+   $( "#viewers" ).autocomplete({
+      source: availableViewers
+    });
+{% endif %}
+{% if labels and labels|length > maxlengthlist %}
+   $( "#labels" ).autocomplete({
+      source: availableLabels
+    });
+{% endif %}
+{% if categories and categories|length > maxlengthlist %}
+   $( "#categories" ).autocomplete({
+      source: availableCategories
+    });
+{% endif %}
+{% if classifications and classifications|length > maxlengthlist %}
+   $( "#classifications" ).autocomplete({
+      source: availableClassifications
+    });
+{% endif %}
+{% if images and images|length > maxlengthlist %}
+   $( "#images" ).autocomplete({
+      source: availableImages
+    });
+{% endif %}
+});
+</script>
+
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Edit project</p>
+      </div>
+      <form method="post" action="{% url 'edit_project' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" value="{{ form.name.value }}" aria-describedby="nameHelp">
+            {{ form.name.errors }}
+         </div>
+         <div class="form-group">
+            <label for="{{ form.psettings.id_for_label }}">Settings</label>
+            <input type="psettings" class="form-control" id="{{ form.psettings.id_for_label }}" name="{{ form.psettings.html_name }}" value="{{ form.psettings.value }}" aria-describedby="psettingsHelp">
+            {{ form.psettings.errors }}
+         </div>
+         <button type="submit" class="btn btn-primary">Update</button>
+      </form>
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title"></p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_remove_goToURL()">Remove project</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento">
+      </div>
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Other info</p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Owner: </span><span class="field-value">{{ owner }}</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Participants: </span>
+            {% if not participants %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif participants and participants|length > maxlengthlist %}
+            <span class="field-value">{{ participants|length }}</span></p>
+            <div class="ui-widget">
+               <input id="participants" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_participant_goToUrl()">Edit participant</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for participant in participants %}
+               <a href="{% url 'edit_participant' %}?username={{ participant.username }}">
+                  <span class="field-value">{{ participant.username }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_participant_goToURL()">Add participant</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Viewers: </span>
+            {% if not viewers %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif viewers and viewers|length > maxlengthlist %}
+            <span class="field-value">{{ viewers|length }}</span></p>
+            <div class="ui-widget">
+               <input id="viewers" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_viewer_goToUrl()">Edit viewer</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for viewer in viewers %}
+               <a href="{% url 'edit_viewer' %}?username={{ viewer.username }}">
+                  <span class="field-value">{{ viewer.username }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_viewer_goToURL()">Add viewer</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Annotation labels: </span>
+            {% if not labels %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif labels and labels|length > maxlengthlist %}
+            <span class="field-value">{{ labels|length }}</span></p>
+            <div class="ui-widget">
+               <input id="labels" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_label_goToUrl()">Edit label</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for label in labels %}
+               <a href="{% url 'edit_label' %}?label_id={{ label.id }}">
+                  <span class="field-value">{{ label.name }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_label_goToURL()">Add label</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Categories: </span>
+            {% if not categories %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif categories and categories|length > maxlengthlist %}
+            <span class="field-value">{{ categories|length }}</span></p>
+            <div class="ui-widget">
+               <input id="categories" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_category_goToUrl()">Edit category</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for category in categories %}
+               <a href="{% url 'edit_category' %}?category_id={{ category.id }}">
+                  <span class="field-value">{{ category.name }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_category_goToURL()">Add category</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Classifications: </span>
+            {% if not classifications %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif classifications and classifications|length > maxlengthlist %}
+            <span class="field-value">{{ classifications|length }}</span></p>
+            <div class="ui-widget">
+               <input id="classifications" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_classification_goToUrl()">Edit classification</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for classification in classifications %}
+               <a href="{% url 'edit_classification' %}?classification_id={{ classification.id }}">
+                  <span class="field-value">{{ classification.name }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_classification_goToURL()">Add classification</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Images: </span>
+            {% if not images %}
+               <span class="field-value">None</span>
+            </p>
+            {% elif images and images|length > maxlengthlist %}
+            <span class="field-value">{{ images|length }}</span></p>
+            <div class="ui-widget">
+               <input id="images" class="ui-autocomplete-input form-control form-control-memento">
+               <button type="button" class="btn btn-primary" onclick="edit_project_edit_image_goToUrl()">Edit image</button>
+            </div>
+            <p></p>
+            {% else %}
+               {% for image in images %}
+               <a href="{% url 'edit_image' %}?image_id={{ image.id }}">
+                  <span class="field-value">{{ image.name }}</span>
+               </a>{% if not forloop.last %}<span class="field-value">, </span>{% endif %}
+               {% endfor %}
+            </p>
+            {% endif %}
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_project_add_image_goToURL()">Add image</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Total participants: </span><span class="field-value">{{ total_participants }}</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Total annotations: </span><span class="field-value">{{ total_annotations }}</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Total annotations submitted: </span><span class="field-value">{{ total_annotations_submitted }}</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Total annotations shared: </span><span class="field-value">{{ total_annotations_shared }}</span>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento">
+      </div>
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Export</p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Annotation data</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="export_data_goToURL('csv')">CSV</button>
+            <button type="button" class="btn btn-primary" onclick="export_data_goToURL('json')">JSON</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">Comments</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="export_comments_goToURL('json')">JSON</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+      <div class="container-category-items">
+         <div>
+            <p><span class="field-title">ROIs</span>
+         </div>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="export_rois_goToURL('json')">JSON</button>
+         </div>
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento-lesser">
+      </div>
+   <div>
+</div>
+</div>
+
+{% endblock %}

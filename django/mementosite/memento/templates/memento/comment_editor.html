@@ -1,0 +1,95 @@
+<div class="comment-grid">
+   {% for comment in comments %}
+   <div class="comment-elem">
+      <textarea id="comment{{ comment.id }}" class="form-control" iscomment="true" rows="2">{{ comment.content }}</textarea>
+      <button id="commentEdit{{ comment.id }}" type="button" class="btn btn-primary" style="margin:10px" onclick="editComment({{ comment.id }})"><i class="material-icons-outlined">edit</i></button>
+      <button id="commentDelete{{ comment.id }}" type="button" class="btn btn-danger" style="margin:10px" {% if comment.is_owner %}onclick="deleteComment({{ comment.id }})"{% else %}disabled{% endif %}><i class="material-icons-outlined">speaker_notes_off</i></button>
+   </div>
+   {% endfor %}
+   <div id="comment-end-block" class="comment-elem">
+      <hr class="hr-memento">
+   </div>
+   <div>
+      <p class="field-title">Add a new comment</p>
+   </div>
+   <div class="comment-elem">
+      <textarea id="newcomment"  class="form-control" iscomment="true" rows="2">...</textarea>
+      <button id="add_comment" type="button" class="btn btn-primary" style="margin:10px" onclick="addComment()"><i class="material-icons-outlined">post_add</i></button>
+      <i id="commentlistCollapse" class="material-icons-outlined expand-icon white" style="margin-top:10px">keyboard_arrow_down</i>
+   </div>
+   <div class="comment-elem">
+      <hr class="hr-memento-lesser">
+   </div>
+</div>
+<script>
+   $('#commentlistCollapse').on('click', function () {
+      $('#viewer-content-commentlist').toggle("slide", { direction: "down", complete: function() { fitMenus(); } });
+      $('#commentlistExpand').toggle({duration: 1000});
+   });
+   
+   function addComment() {
+      $.ajax({url: "{% url 'submit_comment' %}?comment_id=0&content=" + encodeURIComponent($('#newcomment').val()), success: function(result){
+         if (result == "nok") {
+           $("#add_comment").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+           $("#add_comment").addClass("btn-danger").delay(1000).queue(function(){$("#add_comment").removeClass("btn-danger").addClass("btn-primary").dequeue();});
+          } else {
+           $("#add_comment").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+           $("#add_comment").addClass("btn-success").delay(1000).queue(function(){$("#add_comment").removeClass("btn-success").addClass("btn-primary").dequeue();});
+           var new_comment_id = result.split("###")[0];
+           var new_comment_content = result.split("###")[1];
+           $("<div class=\"comment-elem\"><textarea id=\"comment" + 
+              new_comment_id + 
+              "\" class=\"form-control\" iscomment=\"true\" rows=\"2\">" + 
+              new_comment_content + 
+              "</textarea><button id=\"commentEdit" + 
+              new_comment_id +
+              "\" type=\"button\" class=\"btn btn-primary\" style=\"margin:10px\" onclick=\"editComment(" +
+              new_comment_id + 
+              ")\"><i class=\"material-icons-outlined\">edit</i></button><button id=\"commentDelete" +
+              new_comment_id +
+              "\" type=\"button\" class=\"btn btn-danger\" style=\"margin:10px\" onclick=\"deleteComment(" + 
+              new_comment_id + 
+              ")\"><i class=\"material-icons-outlined\">speaker_notes_off</i></button></div>").insertBefore( $( "#comment-end-block" ) );
+           $("#layer-comments{{ request.session.selected_project_layer_id }}").show();
+           $("#layer-comments{{ request.session.selected_project_layer_id }}").attr("has_comments", "1");
+           $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").show();
+           $("#newcomment").val("...");
+         }
+      }});
+   }
+
+   function editComment(comment_id) {
+      $.ajax({url: "{% url 'submit_comment' %}?comment_id=" + comment_id + "&content=" + encodeURIComponent($('#comment' + comment_id).val()), success: function(result){
+         if (result == "nok") {
+           $("#commentEdit" + comment_id).removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+           $("#commentEdit" + comment_id).addClass("btn-danger").delay(1000).queue(function(){$("#commentEdit" + comment_id).removeClass("btn-danger").addClass("btn-primary").dequeue();});
+         } else {
+           $("#commentEdit" + comment_id).removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+           $("#commentEdit" + comment_id).addClass("btn-success").delay(1000).queue(function(){$("#commentEdit" + comment_id).removeClass("btn-success").addClass("btn-primary").dequeue();});
+         }
+      }});
+   }
+
+   function deleteComment(comment_id) {
+      if (confirm('This will permanently remove this comment. Are you sure you want to continue?')) {
+         $.ajax({url: "{% url 'delete_comment_viewer' %}?comment_id=" + comment_id, success: function(result){
+            if (result == "ok") {
+               $("#commentDelete" + comment_id).parent().remove();
+               if ($('[id^="commentEdit"]').length == 0) {
+                   $("#layer-comments{{ request.session.selected_project_layer_id }}").hide();
+                   $("#layer-comments{{ request.session.selected_project_layer_id }}").attr("has_comments", "0");
+               }
+               if ($('[id^="layer-comments"][has_comments="1"]').length == 0) {
+                   $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").hide();
+               }
+            }
+         }});
+      }
+   }
+   
+   function fitComments() {
+      $('textarea[iscomment="true"]').each(function(i, obj) {
+         $(obj).attr('rows', Math.floor((($(obj).val().length * 10) / $("#viewer-content-commentlist").width() * 0.9) + 1))
+      });
+   }
+</script>

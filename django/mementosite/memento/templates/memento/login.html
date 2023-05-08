@@ -1,0 +1,28 @@
+{% extends "memento/base_generic.html" %}
+
+
+{% block content %}
+<div class="main-container">
+   <div class="main-container-options">
+      <div><p class="login-title">memento</p></div>
+      <form method="post" action="{% url 'login_user' %}">
+      {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            <input type="username" class="form-control" id="{{ form.username.id_for_label }}" name="{{ form.username.html_name }}" aria-describedby="usernameHelp" placeholder="Enter username">
+         </div>
+         <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            <input type="password" class="form-control" id="{{ form.password.id_for_label }}" name="{{ form.password.html_name }}" placeholder="Enter password">
+         </div>
+         <button type="submit" value="login" class="btn btn-primary">Login</button>
+         <input type="hidden" name="next" value="{{ next }}">
+
+         {% if form.errors %}
+         <p style="margin-top:20px">Wrong username or password</p>
+         {% endif %}
+      </form>
+   </div>
+</div>
+
+{% endblock %}

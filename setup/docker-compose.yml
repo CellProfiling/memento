@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+  memento_flask:
+    image: "memento_flask"
+    build: ./memento/flask
+    container_name: memento_flask
+    env_file:
+      - ./.env
+    expose:
+      - ${MEMENTO_FLASK_INTERNAL_PORT}
+    ports:
+      - ${MEMENTO_FLASK_INTERNAL_PORT}:${MEMENTO_FLASK_INTERNAL_PORT}
+    networks:
+      - ellcorenet
+    command: gunicorn --enable-stdio-inheritance --reload --capture-output --log-level debug --access-logfile gunicorn.access.log --error-logfile gunicorn.error.log --workers 3 --timeout 3600 --bind 0.0.0.0:${MEMENTO_FLASK_INTERNAL_PORT} wsgi:app
+    volumes:
+      - ${MEMENTO_FLASK_IMAGES_ROOT}:/opt/memento/images
+    depends_on:
+      - maria_db
+
+  memento_django:
+    image: "memento_django"
+    build: ./memento/django
+    restart: 'always'
+    container_name: memento_django
+    env_file:
+      - ./.env
+    expose:
+      - ${MEMENTO_DJANGO_INTERNAL_PORT}
+    ports:
+      - ${MEMENTO_DJANGO_INTERNAL_PORT}:${MEMENTO_DJANGO_INTERNAL_PORT}
+    networks:
+      - ellcorenet
+    command: gunicorn --enable-stdio-inheritance --reload --capture-output --log-level debug --access-logfile gunicorn.access.log --error-logfile gunicorn.error.log --workers 3 --timeout 3600 --chdir ./mementosite --bind 0.0.0.0:${MEMENTO_DJANGO_INTERNAL_PORT} mementosite.wsgi:application
+    volumes:
+      - ${MEMENTO_DJANGO_IMAGES_ROOT}:/opt/memento/images
+      - ./memento/django/mementosite/memento/static:/opt/memento/django/mementosite/memento/static
+    depends_on:
+      - memento_flask
+
+networks:
+  ellcorenet:
+    driver: bridge

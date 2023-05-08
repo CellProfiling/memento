@@ -1,0 +1,96 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Edit classification</p>
+      </div>
+      <form method="post" action="{% url 'edit_classification' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" value="{{ form.name.value }}">
+            {{ form.name.errors }}
+         </div>
+         <div class="form-group">            
+            <label for="{{ form.type.id_for_label }}">Type</label>
+            <select class="form-control" id="{{ form.type.id_for_label }}" name="{{ form.type.html_name }}">
+               <option value="M" selected>Mark</option>
+            </select>
+         </div>
+         <input type="hidden" id="{{ form.data.id_for_label }}" name="{{ form.data.html_name }}" value="{{ form.data.value }}">
+         <div class="form-group">
+            <label for="{{ form.data.id_for_label }}">Data</label>
+            <div>
+            <div style="display:inline-block">
+               <select class="form-control" id="cl_icon" onchange="update_icon();">
+                  <option value="star" selected>star</option>
+                  <option value="search">search</option>
+                  <option value="report_problem">report_problem</option>
+                  <option value="timeline">timeline</option>
+                  <option value="track_changes">track_changes</option>
+                  <option value="calendar_view_week">calendar_view_week</option>
+                  <option value="update_disabled">update_disabled</option>
+                  <option value="filter_list">filter_list</option>
+                  <option value="shield">shield</option>
+                  <option value="waves">waves</option>
+               </select>
+            </div>
+            <div style="display:inline-block;vertical-align:middle">
+               <i class="material-icons-outlined yellow-selected" id="cl_icon_show">star</i>
+            </div>
+            <div style="display:inline-block">
+               <input type="text" class="form-control" id="cl_letter" maxlength="1" size="1">
+            </div>
+            </div>
+         </div>
+         <div class="form-group">
+            <label for="{{ form.clsettings.id_for_label }}">Settings</label>
+            <input type="clsettings" class="form-control" id="{{ form.clsettings.id_for_label }}" name="{{ form.clsettings.html_name }}" value="{{ form.clsettings.value }}" aria-describedby="clsettingsHelp">
+            {{ form.clsettings.errors }}
+         </div>
+         <button type="button" class="btn btn-primary" onclick="checkData()">Update</button>
+      </form>
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title"></p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_classification_remove_goToURL()">Remove classification</button>
+         </div>
+      </div>
+   </div>
+</div>
+</div>
+
+<script>
+function update_icon() {
+    $("#cl_icon_show").html($("#cl_icon").val());
+}
+
+function checkData() {
+   if ($( "#cl_letter" ).val().match(/^[a-zA-Z0-9]+/)) {
+      $("#{{ form.data.id_for_label }}").val($("#cl_icon").val() + "#" + $("#cl_letter").val());
+      $( "form" ).first().submit();
+   } else {
+      alert("The classification requires an alphanumerical character");
+   }
+}
+
+function edit_classification_remove_goToURL() {
+   if (confirm("This will permanently remove all project data related to this classification. Are you sure you want to continue?")) {
+      window.location.href = '{% url 'delete_classification' %}';
+   }
+}
+
+var classification_data = "{{ form.data.value }}";
+$("#cl_icon").val(classification_data.split("#")[0]);
+$("#cl_icon_show").html($("#cl_icon").val());
+$("#cl_letter").val(classification_data.split("#")[1]);
+
+</script>
+{% endblock %}

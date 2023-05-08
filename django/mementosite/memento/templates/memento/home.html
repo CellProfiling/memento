@@ -1,0 +1,52 @@
+{% extends "memento/base_main.html" %}
+
+
+{% block main-content %}
+
+<div class="main-container">
+<div class="main-container-options">
+   {% if projects %}
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Work on your projects</p>
+      </div>
+      <div class="container-category-items">
+         {% for project in projects %}
+         <div>
+            <p>{{ project.name }}</p>
+            <a href="{%url 'viewer' %}?project_id={{ project.id }}"><i class="material-icons-outlined main-container-category-icon">grid_view</i></a>
+         </div>
+         {% endfor %}
+      </div>
+      <div class="container-category">
+         <hr class="hr-memento">
+      </div>
+   </div>
+   {% endif %}
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Other actions</p>
+      </div>
+      <div class="container-category-items">
+         {% if is_sysadm %}
+         <div>
+            <p>Users</p>
+            <a href="{%url 'manage_users' %}"><i class="material-icons-outlined main-container-category-icon">manage_accounts</i></a>
+         </div>
+         {% endif %}
+         {% if is_sysadm or is_proadm %}
+         <div>
+            <p>Projects</p>
+            <a href="{%url 'manage_projects' %}"><i class="material-icons-outlined main-container-category-icon">dashboard_customize</i></a>
+         </div>
+         <div>
+            <p>Share image</p>
+            <a href="{%url 'ft_share_image' %}"><i class="material-icons-outlined main-container-category-icon">quickreply</i></a>
+         </div>
+         {% endif %}
+      </div>
+   </div>
+</div>
+</div>
+
+{% endblock %}

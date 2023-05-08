@@ -1,0 +1,51 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<script>
+function edit_layer_remove_goToURL() {
+   if (confirm("This will permanently remove all project data related to this layer. Are you sure you want to continue?")) {
+      window.location.href = '{% url 'delete_layer' %}';
+   }
+}
+</script>
+
+<div class="main-container">
+<div class="main-container-options">
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">Edit layer</p>
+      </div>
+      <form method="post" action="{% url 'edit_layer' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            <input type="name" class="form-control" id="{{ form.name.id_for_label }}" name="{{ form.name.html_name }}" value="{{ form.name.value }}" aria-describedby="nameHelp">
+            {{ form.name.errors }}
+         </div>
+         <div class="form-group">
+            <select class="form-control" id="{{ form.image_id.id_for_label }}" name="{{ form.image_id.html_name }}">
+               {% for image in images %}
+               <option value="{{ image.id }}" {% if form.image_id.value == image.id %}selected="selected"{% endif %}>{{ image.name }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <button type="submit" class="btn btn-primary">Update</button>
+      </form>
+   </div>
+   <div>
+      &nbsp;
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title"></p>
+      </div>
+      <div class="container-category-items">
+         <div>
+            <button type="button" class="btn btn-primary" onclick="edit_layer_remove_goToURL()">Remove layer</button>
+         </div>
+      </div>
+   </div>
+</div>
+</div>
+
+{% endblock %}
