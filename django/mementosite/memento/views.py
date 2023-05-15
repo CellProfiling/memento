@@ -2723,11 +2723,10 @@ def viewer(request):
         if (response_layers.status_code != 404):
             layer_data = response_layers.json()
             for curr_layer in layer_data['layers']:
-                response_comments = requestAPI(request.user.username, "GET", 'comments/bylayer_id/' + str(curr_layer['layer_id']))
                 allowed_images.append(curr_layer['image_id'])
+                response_comments = requestAPI(request.user.username, "GET", 'comments/bylayer_id/' + str(curr_layer['layer_id']))
                 if (response_comments.status_code != 404):
                     has_comments = True
-                    break
 
         annotations_list = []
         annotations_list.append({'id': annotations_data['annotation_id'], 'name': annotations_data['name'], 'image_id': annotations_data['image_id'],
