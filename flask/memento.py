@@ -10,6 +10,7 @@ from functools import wraps
 import logging
 import model
 import os
+import PIL
 from PIL import Image, ImageFile
 import sqlalchemy as sqla
 
@@ -31,6 +32,7 @@ app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+PIL.Image.MAX_IMAGE_PIXELS = 10000000000
 
 
 def token_required(f):
@@ -687,21 +689,21 @@ def create_image():
         resolution = str(width) + "x" + str(height)
         if (format == 3 or format == '3'):
             image = image.convert('RGBA')
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
         elif (format == 2 or format == '2'):
             image = image.convert('RGBA')
             if (width > 3000 or height > 3000):
                 image.thumbnail((3000, 3000))
                 width, height = image.size
                 resolution = str(width) + "x" + str(height)
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
         elif (format == 1 or format == '1'):
             image = image.convert('RGB')
             if (width > 3000 or height > 3000):
                 image.thumbnail((3000, 3000))
                 width, height = image.size
                 resolution = str(width) + "x" + str(height)
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
             extension = ".jpg"
 
         if (new_image['type'] == 'T'):
@@ -731,33 +733,33 @@ def create_image():
                             y_crop) + extension
                         im_crop.thumbnail((1024, 1024))
                         if (extension == ".jpg"):
-                            im_crop.save(app.config['UPLOAD_FOLDER'] + image_name, 'JPEG')
+                            im_crop.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name, 'JPEG')
                         else:
-                            im_crop.save(app.config['UPLOAD_FOLDER'] + image_name)
+                            im_crop.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name)
                         #app.logger.error('minio image: ' + image_name)
                         client.fput_object(app.config['S3_BUCKET'], image_name,
-                                           app.config['UPLOAD_FOLDER'] + image_name,
+                                           app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name,
                                            content_type="image/" + extension[1:])
-                        os.remove(app.config['UPLOAD_FOLDER'] + image_name)
+                        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name)
 
             image.thumbnail((1024, 1024))
             if (format == 5 or format == '5'):
-                image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+                image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
             elif (format == 4 or format == '4'):
-                image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
+                image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
 
         image.thumbnail((128, 128))
-        image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
+        image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
 
         sql = model.images.update().values(uri=new_image['uri'] + extension, resolution=resolution).where(
             model.images.c.image_id == new_image['image_id'])
         conn.execute(sql)
 
-        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + extension, app.config['UPLOAD_FOLDER'] + new_image['uri'] + extension, content_type="image/" + extension[1:])
-        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + "_thumb.png", app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png", content_type="image/png")
+        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + extension, app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + extension, content_type="image/" + extension[1:])
+        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + "_thumb.png", app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png", content_type="image/png")
 
-        os.remove(app.config['UPLOAD_FOLDER'] + new_image['uri'] + extension)
-        os.remove(app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
+        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + extension)
+        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
 
     return jsonify({'image': new_image}), 201
 
@@ -887,7 +889,7 @@ def upload_file():
 
         filename = secure_filename(file.filename)
 
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        file.save(os.path.join(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'], filename))
 
         new_image['uri'] = 'temp'
     else:
@@ -906,26 +908,26 @@ def upload_file():
 
         format = json_data['format']
         extension = ".png"
-        image = Image.open(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        image = Image.open(os.path.join(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'], filename))
         width, height = image.size
         resolution = str(width) + "x" + str(height)
         if (format == 3 or format == '3'):
             image = image.convert('RGBA')
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
         elif (format == 2 or format == '2'):
             image = image.convert('RGBA')
             if (width > 3000 or height > 3000):
                 image.thumbnail((3000, 3000))
                 width, height = image.size
                 resolution = str(width) + "x" + str(height)
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
         elif (format == 1 or format == '1'):
             image = image.convert('RGB')
             if (width > 3000 or height > 3000):
                 image.thumbnail((3000, 3000))
                 width, height = image.size
                 resolution = str(width) + "x" + str(height)
-            image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
+            image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
             extension = ".jpg"
 
         if (new_image['type'] == 'T'):
@@ -955,34 +957,34 @@ def upload_file():
                             y_crop) + extension
                         im_crop.thumbnail((1024, 1024))
                         if (extension == ".jpg"):
-                            im_crop.save(app.config['UPLOAD_FOLDER'] + image_name, 'JPEG')
+                            im_crop.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name, 'JPEG')
                         else:
-                            im_crop.save(app.config['UPLOAD_FOLDER'] + image_name)
+                            im_crop.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name)
                         client.fput_object(app.config['S3_BUCKET'], image_name,
-                                           app.config['UPLOAD_FOLDER'] + image_name,
+                                           app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name,
                                            content_type="image/" + extension[1:])
-                        os.remove(app.config['UPLOAD_FOLDER'] + image_name)
+                        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + image_name)
 
             image.thumbnail((1024, 1024))
             if (format == 5 or format == '5'):
-                image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".png")
+                image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".png")
             elif (format == 4 or format == '4'):
-                image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
+                image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + ".jpg", 'JPEG')
 
         image.thumbnail((128, 128))
-        image.save(app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
+        image.save(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
 
         sql = model.images.update().values(uri=new_image['uri'] + extension, resolution=resolution).where(
             model.images.c.image_id == new_image['image_id'])
         conn.execute(sql)
 
-        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + extension, app.config['UPLOAD_FOLDER'] + new_image['uri'] + extension, content_type="image/" + extension[1:])
-        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + "_thumb.png", app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png", content_type="image/png")
+        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + extension, app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + extension, content_type="image/" + extension[1:])
+        client.fput_object(app.config['S3_BUCKET'], new_image['uri'] + "_thumb.png", app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png", content_type="image/png")
 
         if (filename != new_image['uri'] + extension):
-            os.remove(app.config['UPLOAD_FOLDER'] + filename)
-        os.remove(app.config['UPLOAD_FOLDER'] + new_image['uri'] + extension)
-        os.remove(app.config['UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
+            os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + filename)
+        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + extension)
+        os.remove(app.config['MEMENTO_FLASK_UPLOAD_FOLDER'] + new_image['uri'] + "_thumb.png")
 
     return jsonify({'image': new_image}), 201
 

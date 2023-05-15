@@ -497,7 +497,7 @@ def ft_share_image(request):
 
             submessages = []
             submessages.append('Send this URL to the person/s you want to grant anonymous access to this annotation')
-            submessages.append(request.build_absolute_uri('memento/viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
+            submessages.append(request.build_absolute_uri('viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
                                                                                '&annotation_id=' + str(annotation_id) + '&share=' + shared)
             next_actions = []
             next_actions.append({ 'url': reverse(views.home), 'text': 'Go back to the main menu'})
@@ -527,10 +527,11 @@ def new_project(request):
                 next_actions.append({ 'url': reverse(views.home), 'text': 'Go back to the main menu'})
                 return return_message(request, 'Could not create project', [], 'nok', next_actions)
             else:
+                project_id = response.json()['project']['project_id']
                 response = requestAPI(request.user.username, "POST", 'categories',
-                                      payload={'name': 'default', 'settings': '' , 'project_id': response.json()['project']['project_id'], 'owner_id': request.user.user_id})
+                                      payload={'name': 'default', 'settings': '', 'project_id': response.json()['project']['project_id'], 'owner_id': request.user.user_id})
                 next_actions.append({ 'url': reverse(views.home), 'text': 'Go back to the main menu'})
-                next_actions.append({ 'url': reverse('edit_project') + '?project_id=' + str(response.json()['project']['project_id']),
+                next_actions.append({ 'url': reverse('edit_project') + '?project_id=' + str(project_id),
                                       'text': 'Edit the new project'})
                 return return_message(request, 'New project created', [], 'ok', next_actions)
         else:
@@ -2167,7 +2168,7 @@ def edit_annotation(request):
         context = {'form': form}
         context['sharedURL'] = ''
         if (annotations_data['annotation']['shared'] != ''):
-            context['sharedURL'] = (request.build_absolute_uri('memento/viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
+            context['sharedURL'] = (request.build_absolute_uri('viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
                                                                                '&annotation_id=' + str(annotation_id) + '&share=' + annotations_data['annotation']['shared'])
 
         context['maxlengthlist'] = settings.MAXLENGTHLIST
@@ -2648,6 +2649,8 @@ def viewer(request):
         if not request.user.is_authenticated:
             return render(request, 'memento/login.html')
     else:
+        if not request.user.is_authenticated:
+            request.session['permissions'] = []
         category_id = int(request.GET.get('category_id', None))
         annotation_id = int(request.GET.get('annotation_id', None))
 
@@ -3064,7 +3067,7 @@ def image_editor(request):
             context['image_id'] = curr_annotation['image_id']
             context['sharedURL'] = ''
             if (curr_annotation['shared'] != ''):
-                context['sharedURL'] = (request.build_absolute_uri('memento/viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
+                context['sharedURL'] = (request.build_absolute_uri('viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
                                                                                     '&annotation_id=' + str(annotation_id) + '&share=' + curr_annotation['shared'])
                 break
     if not 'image_id' in context:
@@ -3389,7 +3392,7 @@ def submit_share_annotation(request):
                                     'owner_id': annotations_data['annotation']['owner_id']})
     sharedURL = ''
     if (shared != ''):
-        sharedURL = (request.build_absolute_uri('memento/viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
+        sharedURL = (request.build_absolute_uri('viewer') + '?project_id=' + str(project_id) + '&category_id=' + str(category_id) +
                                                                 '&annotation_id=' + str(annotation_id) + '&share=' + shared)
 
     return HttpResponse(sharedURL)

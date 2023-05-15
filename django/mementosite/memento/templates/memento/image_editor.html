@@ -125,9 +125,11 @@ function retexture_image() {
             for (let j = 0; j < num_tiles_y; j++) {
                 var xdim = i * zdim;
                 var ydim = j * zdim;
-                var filename = "l" + currLayer + "_z" + zdim + "_x" + xdim + "_y" + ydim;
-                if (!tilesRetextured.includes(filename)) {
-                    tilesToRetexture.push(filename);
+                for (let k = 0; k < canvasArray.length; k++) {
+                   var filename = "l" + k + "_z" + zdim + "_x" + xdim + "_y" + ydim;
+                   if (!tilesRetextured.includes(filename)) {
+                       tilesToRetexture.push(filename);
+                   }
                 }
             }
         }
@@ -705,4 +707,3 @@ $colorPicker.tinycolorpicker();
 $('#option_help').attr("title", "<b>Drawing:</b> keep the Shift key pressed while clicking in the canvas to draw a polygon. Double-click to close the shape and finish.");
 $('#option_help').tooltip();
 </script>
-

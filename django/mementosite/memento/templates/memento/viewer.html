@@ -135,13 +135,15 @@ function loadAnnotation(annotation_id, category_id) {
        $("#listCategory" + category_id).addClass('imagelist-active');
        $("#catSubmenu" + category_id).collapse('show');
        $("#listAnnotation" + annotation_id).addClass('imagelist-active');
-       scrollElement = document.getElementById("listAnnotation" + annotation_id);
-       scrollElement.scrollIntoView();
        loadImageEditor(annotation_id);
        loadLayerEditor(annotation_id, 0);
        loadAnnotationEditor(annotation_id);
        loadCommentEditor(annotation_id, 0);
        $("#imagelistCollapse").show();
+       {% if not request.session.selected_share %}
+       scrollElement = document.getElementById("listAnnotation" + annotation_id);
+       scrollElement.scrollIntoView();
+       {% endif %}
        loadingAnnotation = 0;
    } else {
        loadingAnnotation = annotation_id;
@@ -162,7 +164,7 @@ function fitMenus() {
    } else {
       if ($('#viewer-content-layerlist').length > 0 && $("#viewer-content-layerlist").is(":visible")) {
          maxCentralWidth = maxCentralWidth - 250;
-      } 
+      }
       $('#viewer-content-labellist').css("margin-left", "0px");
       $('#viewer-content-commentlist').css("margin-left", "0px");
    }
@@ -203,12 +205,12 @@ function goto_next_annotation() {
 function remove_next_annotation(category_id, annotation_id) {
    var submitted_annotation = category_id + '-' + annotation_id;
    if (next_annotations.includes(submitted_annotation)) {
-      for(var i = 0; i < next_annotations.length; i++) { 
-         if (next_annotations[i] == submitted_annotation) { 
+      for(var i = 0; i < next_annotations.length; i++) {
+         if (next_annotations[i] == submitted_annotation) {
             next_annotations.splice(i, 1);
             currAnnotation = currAnnotation - 1;
             $("#mark-annotation" + submitted_annotation).hide();
-            break; 
+            break;
          }
       }
    }
@@ -282,10 +284,10 @@ function keyDownAnnotation(e) {
        if (annotation_option.length > 0) {
            toggleLabel(annotation_option[0].id.replace('label', ''));
            toggleLabel(annotation_option[0].id);
-           submitAnnotation();        
+           submitAnnotation();
            goto_next_annotation();
        }
-       if (labelOption == 30) {          
+       if (labelOption == 30) {
            goto_next_annotation();
        }
    }
@@ -322,13 +324,13 @@ $(document).ready(function () {
     {% else %}
         loadAnnotation({{ request.session.selected_project_annotation_id }}, {{ request.session.selected_project_category_id }});
     {% endif %}
-    {% if has_to_annotate <= 0 %} 
+    {% if has_to_annotate <= 0 %}
         $("#next_option").hide();
     {% else %}
         load_next_annotations();
     {% endif %}
     toggle_darkmode(darkmode);
-    
+
     {% if fastannotation %}
         window.addEventListener("keydown", keyDownAnnotation, false);
     {% endif %}
@@ -373,7 +375,7 @@ $(document).ready(function () {
             <li id="listCategory{{ category.id }}" class="imagelist-row {% if forloop.first %} imagelist-active{% endif %}">
                <div class="d-flex flex-row" style="align-content:center;align-items:center">
                   <a id="categoryLink{{ category.id }}" href="#" {% if not request.session.selected_share %}onclick="loadCategory({{ category.id }})"{% endif %}><span class="field-value" style="margin:auto;vertical-align:middle">{{ category.name }}</span><span id="mark-classification{{ category.id }}" class="yellow-selected" style="font-size:24px;white-space:nowrap;margin-left:5px;vertical-align:middle;{% if not category.classification %}display:none">{% else %}">{% if clastype == 'l' %}{{category.classification}}{% else %}<i class="material-icons-outlined" style="vertical-align:middle">{{category.classification}}</i>{% endif %}{% endif %}</span></a>
-               </div>                
+               </div>
                <ul class="collapse list-unstyled imagelist-list" id="catSubmenu{{ category.id }}">
                </ul>
             </li>
