@@ -5,7 +5,7 @@
    {% for layer in layers reversed %}
    <div id="layer-block{{ layer.id }}" class="layer-block layer-elem{% if forloop.last %} imagelist-active{% endif %}" {% if layer.active %}image="1"{% else %}image="0"{% endif %} parent_id="{{ layer.parent_id }}">
       <button id="layer-visible{{ layer.id }}" type="button" class="btn btn-primary layer-btn" style="margin:5px{% if layer.parent_id > 0 %};margin-left:34px{% endif %}" onclick="toggleLayer({{ layer.id }})"><i class="material-icons-outlined">visibility</i></button>
-      {% if not layer.active and layer.parent_id == 0 and layer.data != '' %}
+      {% if layer.data != '' %}
       <button type="button" class="btn btn-danger layer-btn" style="margin:5px" {% if layer.is_owner %}onclick="deleteLayer({{ layer.id }})"{% else %}disabled{% endif %}><i class="material-icons-outlined">layers_clear</i></button>
       {% endif %}
       <a href="#" onclick="selectLayer({{ layer.id }})"><p class="field-value" style="margin:0">{{ layer.name }}</p></a>
@@ -156,7 +156,7 @@
             $("<div id=\"layer-block" +
                result +
                "\" class=\"layer-elem\"><button id=\"layer-visible" +
-               result + "\" type=\"button\" class=\"btn btn-primary layer-btn\" style=\"margin:5px\" onclick=\"toggleLayer(" + 
+               result + "\" type=\"button\" class=\"btn btn-primary layer-btn\" style=\"margin:5px\" onclick=\"toggleLayer(" +
                result +
                ")\"><i class=\"material-icons-outlined\">visibility</i></button><button type=\"button\" class=\"btn btn-danger layer-btn\" style=\"margin:5px\" onclick=\"deleteLayer(" +
                result +
@@ -177,7 +177,7 @@
             $("#canvas-layer" + result).width($('#canvas-div').width());
             $("#canvas-layer" + result).height($('#canvas-div').height());
             latestCanvasLayerIdAdded = result;
-            setTimeout(function(){ 
+            setTimeout(function(){
                var canvas = new fabric.Canvas(document.getElementById("canvas-layer" + latestCanvasLayerIdAdded));
                canvas.setDimensions({
                   width: $('#canvas-div').width(),
@@ -220,24 +220,34 @@
       }
    }
 
-   if (visibilityExclusive == 1) {
-      $('[id^="layer-block"]').each(function(i, obj) {
-         if (!$(obj).hasClass("imagelist-active") && $(obj).attr("image") == "1") {
+   function filterLayers() {
+      if ({% if defaultlayer %}{{ defaultlayer }}{% else %}0{% endif %} > 0) {
+         $('[id^="layer-block"]').each(function(i, obj) {
             var curr_layer_id = obj.id.substring(11);
             $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
             $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
             $("#canvas-layer" + curr_layer_id).parent().parent().hide();
-         }
-      });
-   } else if (visibilityGroupExclusive == 1 && group_layers.length > 0) {
-      $('[id^="layer-block"]').each(function(i, obj) {
-         if (!$(obj).hasClass("imagelist-active") && $(obj).attr("id") != ("layer-block" + group_layers[0]) && $(obj).attr("parent_id") != ("" + group_layers[0])) {
-            var curr_layer_id = obj.id.substring(11);
-            $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
-            $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
-            $("#canvas-layer" + curr_layer_id).parent().parent().hide();
-         }
-      });
+         });
+         toggleLayer({{ defaultlayer }});
+         selectLayer({{ defaultlayer }});
+      } else if (visibilityExclusive == 1) {
+         $('[id^="layer-block"]').each(function(i, obj) {
+            if (!$(obj).hasClass("imagelist-active") && $(obj).attr("image") == "1") {
+               var curr_layer_id = obj.id.substring(11);
+               $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+               $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+               $("#canvas-layer" + curr_layer_id).parent().parent().hide();
+            }
+         });
+      } else if (visibilityGroupExclusive == 1 && group_layers.length > 0) {
+         $('[id^="layer-block"]').each(function(i, obj) {
+            if (!$(obj).hasClass("imagelist-active") && $(obj).attr("id") != ("layer-block" + group_layers[0]) && $(obj).attr("parent_id") != ("" + group_layers[0])) {
+               var curr_layer_id = obj.id.substring(11);
+               $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+               $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+               $("#canvas-layer" + curr_layer_id).parent().parent().hide();
+            }
+         });
+      }
    }
 </script>
-

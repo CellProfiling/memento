@@ -2,7 +2,7 @@ import sqlalchemy as sqla
 import os
 
 database_desc = 'mysql+mysqlconnector://' + os.environ.get("MYSQL_MEMENTO_USER") + ':' + os.environ.get("MYSQL_MEMENTO_PASSWORD") + '@' + os.environ.get("MYSQL_HOSTNAME") + ':' + os.environ.get("MYSQL_PORT") + '/' + os.environ.get("MYSQL_MEMENTO_DATABASE")
-engine = sqla.create_engine(database_desc, pool_recycle=3600)
+engine = sqla.create_engine(database_desc, pool_recycle=3600, pool_size=20, max_overflow=50)
 metadata = sqla.MetaData()
 users = sqla.Table('users', metadata,
     sqla.Column('user_id', sqla.Integer, primary_key=True),
@@ -89,4 +89,3 @@ comments = sqla.Table('comments', metadata,
     sqla.Column('layer_id', sqla.Integer, nullable=False),
     sqla.Column('owner_id', sqla.Integer, nullable=False),
 )
-

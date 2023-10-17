@@ -358,7 +358,7 @@ def update_permission(request):
     if (permission_type_id == 1):
         requestAPI(request.user.username, "POST", 'permissions', payload={'user_id': user_id, 'type': permission_type, 'type_id': permission_type_id})
 
-    return redirect('memento/edit_user?username=' + username)
+    return redirect('/memento/edit_user?username=' + username)
 
 
 @login_required
@@ -763,6 +763,11 @@ def export_data(request):
         return return_message(request, 'Project not found', [], 'nok', next_actions)
     project_name = response.json()['project']['name']
 
+    classifications_data = []
+    response = requestAPI(request.user.username, "GET", 'classifications/byproject_id/' + str(project_id))
+    if (response.status_code != 404):
+        classifications_data = response.json()['classifications']
+
     response = requestAPI(request.user.username, "GET", 'labels/byproject_id/' + str(project_id))
     if (response.status_code == 404):
         next_actions = []
@@ -779,78 +784,52 @@ def export_data(request):
 
     project_data = response.json()['project_data']
 
-    last_cat = ''
-    last_cla = ''
-    last_ann = ''
-    last_img = ''
-    last_sta = ''
-    last_lab = {}
-    for label in labels_data:
-        last_lab[label['name']] = 'N'
+    structured_data = {}
+    for curr_data_row in project_data:
+        curr_cat = curr_data_row['c2']
+        if curr_cat not in structured_data.keys():
+            structured_data[curr_cat] = {}
+            structured_data[curr_cat]['classifications'] = []
+            structured_data[curr_cat]['annotations'] = {}
+        curr_cla = curr_data_row['c3']
+        if curr_cla not in structured_data[curr_cat]['classifications']:
+            structured_data[curr_cat]['classifications'].append(curr_cla)
+        curr_ann = curr_data_row['c4']
+        if curr_ann not in structured_data[curr_cat]['annotations'].keys():
+            structured_data[curr_cat]['annotations'][curr_ann] = {}
+            structured_data[curr_cat]['annotations'][curr_ann]['image'] = curr_data_row['c5']
+            structured_data[curr_cat]['annotations'][curr_ann]['submitted'] = curr_data_row['c6']
+            structured_data[curr_cat]['annotations'][curr_ann]['uri'] = curr_data_row['c8']
+            structured_data[curr_cat]['annotations'][curr_ann]['labels'] = []
+        curr_label = curr_data_row['c7']
+        if curr_label not in structured_data[curr_cat]['annotations'][curr_ann]['labels']:
+            structured_data[curr_cat]['annotations'][curr_ann]['labels'].append(curr_label)
 
     if (formattype == 'csv'):
-        file_data = 'category,classification,annotation,image,uri,submitted,'
+        file_data = 'category,'
+        for classification in classifications_data:
+            file_data = file_data + classification['name'] + ','
+        file_data = file_data + 'annotation,image,uri,submitted,'
         for label in labels_data:
             file_data = file_data + label['name'] + ','
 
-        file_data = file_data[:-1]
-        file_data = file_data + '\n'
-        for curr_data_row in project_data:
-            curr_cat = curr_data_row['c2']
-            curr_cla = 'No classification'
-            if (curr_data_row['c3']):
-                curr_cla = curr_data_row['c3']
-            curr_ann = curr_data_row['c4']
-            curr_img = curr_data_row['c5']
-            curr_uri = curr_data_row['c8']
-            curr_sta = curr_data_row['c6']
+        file_data = file_data[:-1] + '\n'
 
-            if (last_cat == ''):
-                last_cat = curr_cat
-                last_cla = curr_cla
-                last_ann = curr_ann
-                last_img = curr_img
-                last_uri = curr_uri
-                last_sta = curr_sta
-
-            if (curr_cat == last_cat and curr_cla == last_cla and curr_ann == last_ann and curr_img == last_img):
-                if (curr_data_row['c7']):
-                    last_lab[curr_data_row['c7']] = 'Y'
-            else:
+        for curr_cat in structured_data.keys():
+            for curr_ann in structured_data[curr_cat]['annotations'].keys():
                 new_line = ''
-                new_line = new_line + last_cat + ','
-                new_line = new_line + last_cla + ','
-                new_line = new_line + last_ann + ','
-                new_line = new_line + last_img + ','
-                new_line = new_line + last_uri + ','
-                new_line = new_line + last_sta + ','
-                for curr_lab in last_lab:
-                    new_line = new_line + last_lab[curr_lab] + ','
-                    last_lab[curr_lab] = 'N'
-                last_cat = curr_cat
-                last_cla = curr_cla
-                last_ann = curr_ann
-                last_img = curr_img
-                last_uri = curr_uri
-                last_sta = curr_sta
-                if (curr_data_row['c7']):
-                    last_lab[curr_data_row['c7']] = 'Y'
+                new_line = new_line + curr_cat + ','
+                for classification in classifications_data:
+                    new_line = new_line + ('Y' if classification['name'] in structured_data[curr_cat]['classifications'] else 'N') + ','
+                new_line = new_line + curr_ann + ','
+                new_line = new_line + structured_data[curr_cat]['annotations'][curr_ann]['image'] + ','
+                new_line = new_line + structured_data[curr_cat]['annotations'][curr_ann]['uri'] + ','
+                new_line = new_line + structured_data[curr_cat]['annotations'][curr_ann]['submitted'] + ','
+                for label in labels_data:
+                    new_line = new_line + ('Y' if label['name'] in structured_data[curr_cat]['annotations'][curr_ann]['labels'] else 'N') + ','
 
                 new_line = new_line[:-1]
                 file_data = file_data + new_line + '\n'
-
-        new_line = ''
-        new_line = new_line + last_cat + ','
-        new_line = new_line + last_cla + ','
-        new_line = new_line + last_ann + ','
-        new_line = new_line + last_img + ','
-        new_line = new_line + last_uri + ','
-        new_line = new_line + last_sta + ','
-        for curr_lab in last_lab:
-            new_line = new_line + last_lab[curr_lab] + ','
-
-        new_line = new_line[:-1]
-        file_data = file_data + new_line + '\n'
 
         response = HttpResponse(file_data, content_type='text/csv charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="' + project_name + '_data.csv"'
@@ -858,59 +837,22 @@ def export_data(request):
     elif (formattype == 'json'):
         file_data = { "categories": {} }
 
-        for curr_data_row in project_data:
-            curr_cat = curr_data_row['c2']
-            curr_cla = 'No classification'
-            if (curr_data_row['c3'] and curr_data_row['c3'] != 'NULL'):
-                curr_cla = curr_data_row['c3']
-            curr_ann = curr_data_row['c4']
-            curr_img = curr_data_row['c5']
-            curr_uri = curr_data_row['c8']
-            curr_sta = curr_data_row['c6']
-
-            if (last_cat == ''):
-                last_cat = curr_cat
-                last_cla = curr_cla
-                last_ann = curr_ann
-                last_img = curr_img
-                last_uri = curr_uri
-                last_sta = curr_sta
-
-            if (curr_cat == last_cat and curr_cla == last_cla and curr_ann == last_ann and curr_img == last_img):
-                if (curr_data_row['c7']):
-                    last_lab[curr_data_row['c7']] = 'Y'
-            else:
-                if (not last_cat in file_data["categories"]):
-                    file_data["categories"][last_cat] = { 'classification': last_cla, 'annotations': {} }
-                if (not last_ann in file_data["categories"][last_cat]["annotations"]):
-                    file_data["categories"][last_cat]["annotations"][last_ann] = {}
-                file_data["categories"][last_cat]["annotations"][last_ann] = {}
-                file_data["categories"][last_cat]["annotations"][last_ann]["image"] = last_img
-                file_data["categories"][last_cat]["annotations"][last_ann]["status"] = last_sta
-                file_data["categories"][last_cat]["annotations"][last_ann]["labels"] = {}
-                for curr_lab in last_lab:
-                    file_data["categories"][last_cat]["annotations"][last_ann]["labels"][curr_lab] = last_lab[curr_lab]
-                    last_lab[curr_lab] = 'N'
-                last_cat = curr_cat
-                last_cla = curr_cla
-                last_ann = curr_ann
-                last_img = curr_img
-                last_uri = curr_uri
-                last_sta = curr_sta
-                if (curr_data_row['c7']):
-                    last_lab[curr_data_row['c7']] = 'Y'
-
-        if (not last_cat in file_data["categories"]):
-            file_data["categories"][last_cat] = { 'classification': last_cla, 'annotations': {} }
-        if (not last_ann in file_data["categories"][last_cat]["annotations"]):
-            file_data["categories"][last_cat]["annotations"][last_ann] = {}
-        file_data["categories"][last_cat]["annotations"][last_ann] = {}
-        file_data["categories"][last_cat]["annotations"][last_ann]["image"] = last_img
-        file_data["categories"][last_cat]["annotations"][last_ann]["uri"] = last_uri
-        file_data["categories"][last_cat]["annotations"][last_ann]["status"] = last_sta
-        file_data["categories"][last_cat]["annotations"][last_ann]["labels"] = {}
-        for curr_lab in last_lab:
-            file_data["categories"][last_cat]["annotations"][last_ann]["labels"][curr_lab] = last_lab[curr_lab]
+        for curr_cat in structured_data.keys():
+            if curr_cat not in file_data["categories"].keys():
+                file_data["categories"][curr_cat] = {}
+                file_data["categories"][curr_cat]['classifications'] = {}
+                for classification in classifications_data:
+                    file_data["categories"][curr_cat]['classifications'][classification['name']] = 'Y' if classification['name'] in structured_data[curr_cat]['classifications'] else 'N'
+                file_data["categories"][curr_cat]['annotations'] = {}
+            for curr_ann in structured_data[curr_cat]['annotations'].keys():
+                if curr_ann not in file_data["categories"][curr_cat]['annotations'].keys():
+                    file_data["categories"][curr_cat]['annotations'][curr_ann] = {}
+                    file_data["categories"][curr_cat]['annotations'][curr_ann]['image'] = structured_data[curr_cat]['annotations'][curr_ann]['image']
+                    file_data["categories"][curr_cat]['annotations'][curr_ann]['uri'] = structured_data[curr_cat]['annotations'][curr_ann]['uri']
+                    file_data["categories"][curr_cat]['annotations'][curr_ann]['submitted'] = structured_data[curr_cat]['annotations'][curr_ann]['submitted']
+                    file_data["categories"][curr_cat]['annotations'][curr_ann]['labels'] = {}
+                    for label in labels_data:
+                        file_data["categories"][curr_cat]['annotations'][curr_ann]['labels'][label['name']] = 'Y' if label['name'] in structured_data[curr_cat]['annotations'][curr_ann]['labels'] else 'N'
 
         response = HttpResponse(json.dumps(file_data, indent = 4), content_type='application/json charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="' + project_name + '_data.json"'
@@ -1003,7 +945,7 @@ def export_rois(request):
         file_data[curr_cat][curr_ann][curr_lay].append(curr_roi)
 
     response = HttpResponse(json.dumps(file_data, indent = 4), content_type='application/json charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="' + project_name + '_comments.json"'
+    response['Content-Disposition'] = 'attachment; filename="' + project_name + '_rois.json"'
     return response
 
 
@@ -2613,7 +2555,7 @@ def update_share_annotation(request):
                                     'project_id': annotations_data['annotation']['project_id'], 'category_id': annotations_data['annotation']['category_id'],
                                     'owner_id': annotations_data['annotation']['owner_id']})
 
-    return redirect('memento/edit_annotation?annotation_id=' + str(annotation_id))
+    return redirect('/memento/edit_annotation?annotation_id=' + str(annotation_id))
 
 
 @login_required
@@ -2639,7 +2581,7 @@ def delete_annotation_labels(request):
 
     response = requestAPI(request.user.username, "DELETE", 'annotations_labels/byfilter/' + str(annotation_id) + '/0')
 
-    return redirect('memento/edit_annotation?annotation_id=' + str(annotation_id))
+    return redirect('/memento/edit_annotation?annotation_id=' + str(annotation_id))
 
 
 def viewer(request):
@@ -2690,6 +2632,8 @@ def viewer(request):
             context['fastgroup'] = pro_settings['fastgroup']
         if ('annotationexclusive' in pro_settings):
             context['annotationexclusive'] = pro_settings['annotationexclusive']
+        if ('classificationexclusive' in pro_settings):
+            context['classificationexclusive'] = pro_settings['classificationexclusive']
         if ('expandlayer' in pro_settings):
             context['expandlayer'] = pro_settings['expandlayer']
         if ('expandcomment' in pro_settings):
@@ -2698,6 +2642,8 @@ def viewer(request):
             context['darkmode'] = pro_settings['darkmode']
         if ('clastype' in pro_settings):
             clastype = pro_settings['clastype']
+        if ('defaultlayer' in pro_settings):
+            context['defaultlayer'] = pro_settings['defaultlayer']
         if ('visibilityexclusive' in pro_settings):
             context['visibilityexclusive'] = pro_settings['visibilityexclusive']
         if ('visibilitygroupexclusive' in pro_settings):
@@ -2789,7 +2735,7 @@ def viewer(request):
                                         break
 
                 if (allowed):
-                    classification = ''
+                    classifications = []
                     response_categories_classifications = requestAPI(request.user.username, "GET", 'categories_classifications/byfilter/' + str(curr_category['category_id']) + '/0')
                     if (response_categories_classifications.status_code != 404):
                         categories_classifications_data = response_categories_classifications.json()
@@ -2799,11 +2745,11 @@ def viewer(request):
                                 classifications_data = response_classification.json()['classification']
                                 if (classifications_data['type'] == 'M'):
                                     if (clastype == 'i'):
-                                        classification = classifications_data['data'].split("#")[0]
+                                        classifications.append(classifications_data['data'].split("#")[0])
                                     else:
-                                        classification = classifications_data['data'].split("#")[1]
+                                        classifications.append(classifications_data['data'].split("#")[1])
 
-                    categories_list.append({'id': curr_category['category_id'], 'name': curr_category['name'], 'classification': classification})
+                    categories_list.append({'id': curr_category['category_id'], 'name': curr_category['name'], 'classification': classifications})
             request.session['allowed_categories'] = categories_list
             context['selected_category_id'] = categories_list[0]['id']
 
@@ -3088,9 +3034,17 @@ def image_editor(request):
     layer_id = layers_data[0]['layer_id']
     context['layer_id'] = layer_id
 
+    default_layer = 0
+    if (request.session['selected_project_settings'] and request.session['selected_project_settings'] != ""):
+        pro_settings = dict(item.split(":") for item in request.session['selected_project_settings'].split(","))
+        if ('defaultlayer' in pro_settings):
+            default_layer = pro_settings['defaultlayer']
+
     group_layers = []
     layers_list = []
     for layer in layers_data:
+        if (str(layer['sequence']) == default_layer):
+            context['defaultlayer'] = layer['layer_id']
         if (layer_id != layer['layer_id']):
             layer_image_id = 0
             layer_image_uri = ''
@@ -3145,17 +3099,25 @@ def layer_editor(request):
     if layer_id == 0:
         layer_id = layers_data[0]['layer_id']
 
+    default_layer = -1
+    if (request.session['selected_project_settings'] and request.session['selected_project_settings'] != ""):
+        pro_settings = dict(item.split(":") for item in request.session['selected_project_settings'].split(","))
+        if ('defaultlayer' in pro_settings):
+            default_layer = pro_settings['defaultlayer']
+
     context = {}
     layers_list = []
     group_layers = []
     for layer in layers_data:
+        if (str(layer['sequence']) == default_layer):
+            context['defaultlayer'] = layer['layer_id']
         layer_info = {}
         layer_info['id'] = layer['layer_id']
         layer_info['name'] = layer['name']
         layer_info['data'] = layer['data']
         layer_info['parent_id'] = layer['parent_id']
         layer_info['is_owner'] = True
-        if (shared or (not can_be_owner and layer['owner_id'] != request.user.user_id)):
+        if (shared or ((not can_be_owner) and layer['owner_id'] != request.user.user_id)):
             layer_info['is_owner'] = False
         response = requestAPI(request.user.username, "GET", 'comments/bylayer_id/' + str(layer['layer_id']))
         if (response.status_code != 404):
@@ -3239,7 +3201,7 @@ def classification_editor(request):
 
     context = {}
 
-    context['classification_active'] = ''
+    context['classifications_active'] = []
     response_cateclas = requestAPI(request.user.username, "GET", 'categories_classifications/byfilter/' + str(category_id) + '/0')
     if (response_cateclas.status_code != 404):
         cateclas_data = response_cateclas.json()
@@ -3248,7 +3210,7 @@ def classification_editor(request):
             if (response_classification.status_code != 404):
                 classification_data = response_classification.json()['classification']
                 if (classification_data['type'] == 'M'):
-                    context['classification_active'] = classification_data['classification_id']
+                    context['classifications_active'].append(classification_data['classification_id'])
 
     classifications_list = []
     response = requestAPI(request.user.username, "GET", 'classifications/byproject_id/' + str(project_id))
@@ -3261,6 +3223,13 @@ def classification_editor(request):
                                      'icon': curr_classification['data'].split('#')[0], 'letter': curr_classification['data'].split('#')[1]})
 
     context['classifications'] = classifications_list
+
+    if (request.session['selected_project_settings'] and request.session['selected_project_settings'] != ""):
+        pro_settings = dict(item.split(":") for item in request.session['selected_project_settings'].split(","))
+        if ('fastannotation' in pro_settings):
+            context['fastannotation'] = pro_settings['fastannotation']
+        if ('classificationexclusive' in pro_settings):
+            context['classificationexclusive'] = pro_settings['classificationexclusive']
 
     request.session['selected_project_category_id'] = category_id
 
@@ -3349,7 +3318,7 @@ def comment_editor(request):
     if (response.status_code != 404):
         comments_data = response.json()['comments']
         for comment in comments_data:
-            if (shared or (not can_be_owner and comment['owner_id'] != request.user.user_id)):
+            if (shared or ((not can_be_owner) and comment['owner_id'] != request.user.user_id)):
                 comments_list.append({'id': comment['comment_id'], 'content': comment['content'], 'is_owner': False})
             else:
                 comments_list.append({'id': comment['comment_id'], 'content': comment['content'], 'is_owner': True})
@@ -3420,7 +3389,7 @@ def new_layer_viewer(request):
     layers_data = response.json()['layers']
 
     curr_sequence = (layers_data[len(layers_data) - 1]['sequence'] + 1)
-    response = requestAPI(request.user.username, "POST", 'layers', payload={'name': name, 'data': '', 'image_id': 0, 'sequence': curr_sequence, 'parent_id': 0, 'annotation_id': annotation_id, 'owner_id' : owner_id})
+    response = requestAPI(request.user.username, "POST", 'layers', payload={'name': name, 'data': 'none', 'image_id': 0, 'sequence': curr_sequence, 'parent_id': 0, 'annotation_id': annotation_id, 'owner_id' : owner_id})
     if (response.status_code != 201):
         return HttpResponse('nok')
 
@@ -3450,6 +3419,9 @@ def save_layer_viewer(request):
     else:
         if layer_data['annotation_id'] != request.session['selected_project_annotation_id']:
             return HttpResponse('nok')
+
+    if not data or data == '':
+        data = 'none'
 
     response = requestAPI(request.user.username, "PUT", 'layers/' + str(layer_id), payload={'name': layer_data['name'], 'data': data, 'image_id': 0, 'sequence': layer_data['sequence'], 'parent_id': layer_data['parent_id'],
                                      'annotation_id': layer_data['annotation_id'], 'owner_id' : layer_data['owner_id']})
@@ -3542,10 +3514,14 @@ def submit_annotation_labels(request):
 def submit_classification(request):
     project_id = request.session['selected_project_id']
     category_id = request.session['selected_project_category_id']
-    classification_id = request.GET.get('classification_id', None)
+    classifications = request.GET.get('classifications', None)
 
     if (not checkPermissions(request.session['permissions'], 'cat', 'par', project_id, category_id, None)):
         return HttpResponse('nok')
+
+    classifications_list = []
+    if classifications:
+        classifications_list = classifications.split(",")
 
     response = requestAPI(request.user.username, "DELETE", 'categories_classifications/byfilter/' + str(category_id) + '/0')
 
@@ -3555,7 +3531,7 @@ def submit_classification(request):
 
     project_classifications_data = response.json()['classifications']
     for curr_project_classification in project_classifications_data:
-        if str(curr_project_classification['classification_id']) == classification_id:
+        if str(curr_project_classification['classification_id']) in classifications_list:
             response = requestAPI(request.user.username, "POST", 'categories_classifications', payload={'category_id': category_id, 'classification_id' : curr_project_classification['classification_id']})
             if (response.status_code != 201):
                 return HttpResponse('nok')

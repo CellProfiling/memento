@@ -232,7 +232,7 @@ def get_category_id(user_id, project_id, name):
     return -1
 
 
-def new_annotation(user_id, project_id, category_id, image_id, name, layer_name, layer_sequence, parent_id):
+def new_annotation(user_id, project_id, category_id, image_id, name, layer_name, layer_sequence, parent_id, is_group_layer):
     response = requests.get(REST_base_url + 'projects/' + str(project_id), headers=auth)
     if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
         return -1, -1
@@ -247,7 +247,7 @@ def new_annotation(user_id, project_id, category_id, image_id, name, layer_name,
     annotation_id = response.json()['annotation']['annotation_id']
 
     response = requests.post(REST_base_url + 'layers',
-                             json={'name': layer_name, 'data': '', 'image_id': image_id, 'sequence': layer_sequence,
+                             json={'name': layer_name, 'data': '', 'image_id': image_id if not is_group_layer else 0, 'sequence': layer_sequence,
                                    'parent_id': parent_id, 'annotation_id': annotation_id, 'owner_id': user_id},
                              headers=auth)
     if response.status_code != 201:
@@ -346,7 +346,7 @@ def get_layer_id(user_id, project_id, annotation_id, name):
     if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
         return -1
 
-    response = requests.get(REST_base_url + 'layers/byannotation_id/' + str(annotation_id))
+    response = requests.get(REST_base_url + 'layers/byannotation_id/' + str(annotation_id), headers=auth)
     if response.status_code == 404:
         return -1
     layers_data = response.json()['layers']
@@ -354,6 +354,102 @@ def get_layer_id(user_id, project_id, annotation_id, name):
     for curr_layer in layers_data:
         if curr_layer['name'] == name:
             return curr_layer['layer_id']
+
+    return -1
+
+
+def get_classifications(user_id, project_id, category_id):
+    response = requests.get(REST_base_url + 'projects/' + str(project_id), headers=auth)
+    if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
+        return None
+
+    result = []
+    response_cateclas = requests.get(REST_base_url + 'categories_classifications/byfilter/' + str(category_id) + '/0', headers=auth)
+    if (response_cateclas.status_code != 404):
+        cateclas_data = response_cateclas.json()
+        for curr_cateclas in cateclas_data['categories_classifications']:
+            response_classification = requests.get(REST_base_url + 'classifications/' + str(curr_cateclas['classification_id']), headers=auth)
+            if (response_classification.status_code != 404):
+                classification_data = response_classification.json()['classification']
+                if (classification_data['type'] == 'M'):
+                    result.append(classification_data['name'])
+
+    return result
+
+
+def set_classifications(user_id, project_id, category_id, classifications_list):
+    response = requests.get(REST_base_url + 'projects/' + str(project_id), headers=auth)
+    if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
+        return -1
+
+    response = requests.get(REST_base_url + 'classifications/byproject_id/' + str(project_id), headers=auth)
+    if (response.status_code == 404):
+        return -1
+
+    classification_data = response.json()
+    result = []
+    for classification in classifications_list:
+        for curr_category in classification_data['classifications']:
+            if curr_category['name'] == classification:
+                result.append(curr_category['classification_id'])
+                break
+
+    if len(result) == len(classifications_list):
+        requests.delete(REST_base_url + 'categories_classifications/byfilter/' + str(category_id) + '/0', headers=auth)
+        for classification in result:
+            response = requests.post(REST_base_url + 'categories_classifications', json={'category_id': category_id, 'classification_id' : classification}, headers=auth)
+            if (response.status_code != 201):
+                return -1
+
+        return len(result)
+
+    return -1
+
+
+def get_annotation_labels(user_id, project_id, annotation_id):
+    response = requests.get(REST_base_url + 'projects/' + str(project_id), headers=auth)
+    if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
+        return None
+
+    result = []
+    response_annlabs = requests.get(REST_base_url + 'annotations_labels/byfilter/' + str(annotation_id) + '/0', headers=auth)
+    if (response_annlabs.status_code != 404):
+        annlabs_data = response_annlabs.json()
+        for curr_annlab in annlabs_data['annotations_labels']:
+            response_label = requests.get(REST_base_url + 'labels/' + str(curr_annlab['label_id']), headers=auth)
+            if (response_label.status_code != 404):
+                label_data = response_label.json()['label']
+                result.append(label_data['name'])
+        return result
+
+    return result
+
+
+def set_annotation_labels(user_id, project_id, annotation_id, labels_list):
+    response = requests.get(REST_base_url + 'projects/' + str(project_id), headers=auth)
+    if response.status_code == 404 or response.json()['project']['owner_id'] != user_id:
+        return -1
+
+    response = requests.get(REST_base_url + 'labels/byproject_id/' + str(project_id), headers=auth)
+    if (response.status_code == 404):
+        return -1
+
+    labels_data = response.json()
+    result = []
+    for label in labels_list:
+        for curr_label in labels_data['labels']:
+            if curr_label['name'] == label:
+                result.append(curr_label['label_id'])
+                break
+
+    if len(result) == len(labels_list):
+        requests.delete(REST_base_url + 'annotations_labels/byfilter/' + str(annotation_id) + '/0', headers=auth)
+        for label in result:
+            response = requests.post(REST_base_url + 'annotations_labels', json={'annotation_id': annotation_id, 'label_id': label}, headers=auth)
+            if (response.status_code != 201):
+                return -1
+
+        return len(result)
 
     return -1
 

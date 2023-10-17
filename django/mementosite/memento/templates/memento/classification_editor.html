@@ -1,6 +1,6 @@
 <div class="annotation-grid">
    {% for classification in classifications %}
-   <button id="classification{{ classification.id }}" type="button" class="btn {% if classification_active == classification.id %}btn-warning" active="true"{% else %}btn-secondary"{% endif %} icon="{{ classification.icon }}" letter="{{ classification.letter }}" style="margin:10px" onclick="toggleClassification({{ classification.id }})">{{ classification.name }}</button>
+   <button id="classification{{ classification.id }}" type="button" class="btn {% if classification.id in classifications_active %}btn-warning" active="true"{% else %}btn-secondary"{% endif %} icon="{{ classification.icon }}" letter="{{ classification.letter }}" style="margin:10px" onclick="toggleClassification({{ classification.id }})">{{ classification.name }}</button>
    {% endfor %}
    <button id="submit_classification" type="button" class="btn btn-primary" style="margin:10px" onclick="submitClassification()">Classify</button>
    <i id="labellistCollapse" class="material-icons-outlined expand-icon white" style="margin-top:5px">keyboard_arrow_up</i>
@@ -14,11 +14,13 @@ $('#labellistCollapse').on('click', function () {
 
 function toggleClassification(classification_id) {
     if ($("#classification" + classification_id).hasClass("btn-secondary")) {
+        {% if classificationexclusive %}
         $('button[active="true"]').each(function(i, obj) {
             obj.setAttribute("active", "false");
             $(obj).removeClass("btn-warning");
             $(obj).addClass("btn-secondary");
         });
+        {% endif %}
         $("#classification" + classification_id).removeClass("btn-secondary");
         $("#classification" + classification_id).addClass("btn-warning");
         $("#classification" + classification_id).attr("active","true");
@@ -30,21 +32,20 @@ function toggleClassification(classification_id) {
 }
 
 function submitClassification() {
-   var selClassId = 0;
-   var selClassIcon = "";
-   var selClassLetter = "";
-
+   var listClassificationsId = [];
+   var listClassificationsIcon = [];
+   var listClassificationsLetter = [];
    $('button[active="true"]').each(function(i, obj) {
-      selClassId = obj.id.substring(14);
-      selClassIcon = obj.getAttribute("icon");
-      selClassLetter = obj.getAttribute("letter");
+      listClassificationsId.push(obj.id.substring(14));
+      listClassificationsIcon.push(obj.getAttribute("icon"));
+      listClassificationsLetter.push(obj.getAttribute("letter"));
    });
 
-   $.ajax({url: "{% url 'submit_classification' %}?classification_id=" + selClassId, success: function(result){
+   $.ajax({url: "{% url 'submit_classification' %}?classifications=" + listClassificationsId.join(), success: function(result){
       if (result == "ok") {
          $("#submit_classification").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
          $("#submit_classification").addClass("btn-success").delay(1000).queue(function(){$("#submit_classification").removeClass("btn-success").addClass("btn-primary").dequeue();});
-         update_classification('{{ request.session.selected_project_category_id }}', selClassId, selClassIcon, selClassLetter);
+         update_classification('{{ request.session.selected_project_category_id }}', listClassificationsId, listClassificationsIcon, listClassificationsLetter);
       } else {
          $("#submit_classification").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
          $("#submit_classification").addClass("btn-danger").delay(1000).queue(function(){$("#submit_classification").removeClass("btn-danger").addClass("btn-primary").dequeue();});

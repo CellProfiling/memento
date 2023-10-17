@@ -93,7 +93,7 @@ def login():
 @token_required
 def get_users():
     conn = model.engine.connect()
-    sql = sqla.select([model.users.c.user_id, model.users.c.username, model.users.c.name, model.users.c.email, model.users.c.settings])
+    sql = sqla.select([model.users.c.user_id, model.users.c.username, model.users.c.name, model.users.c.email, model.users.c.settings]).order_by(model.users.c.username.asc())
     result = conn.execute(sql)
     return jsonify({'users': [dict(row) for row in result]}), 200
 
@@ -174,7 +174,7 @@ def get_user_byusername(username):
 @token_required
 def get_permissions():
     conn = model.engine.connect()
-    sql = sqla.select([model.permissions.c.user_id, model.permissions.c.type, model.permissions.c.type_id])
+    sql = sqla.select([model.permissions.c.user_id, model.permissions.c.type, model.permissions.c.type_id]).order_by(model.permissions.c.user_id.asc())
     result = conn.execute(sql)
     return jsonify({'permissions': [dict(row) for row in result]}), 200
 
@@ -222,7 +222,7 @@ def delete_permission(user_id, stype, type_id):
 @token_required
 def get_permissions_byfilter(user_id, stype, type_id):
     conn = model.engine.connect()
-    sql = sqla.select([model.permissions.c.user_id, model.permissions.c.type, model.permissions.c.type_id])
+    sql = sqla.select([model.permissions.c.user_id, model.permissions.c.type, model.permissions.c.type_id]).order_by(model.permissions.c.user_id.asc())
     if (user_id > 0):
         sql = sql.where(model.permissions.c.user_id == user_id)
     if (stype != '' and stype != 'none'):
@@ -252,7 +252,7 @@ def delete_permissions_byfilter(user_id, stype, type_id):
 @token_required
 def get_projects():
     conn = model.engine.connect()
-    sql = sqla.select([model.projects.c.project_id, model.projects.c.name, model.projects.c.owner_id])
+    sql = sqla.select([model.projects.c.project_id, model.projects.c.name, model.projects.c.owner_id]).order_by(model.projects.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'projects': [dict(row) for row in result]}), 200
 
@@ -316,7 +316,7 @@ def delete_project(project_id):
 @token_required
 def get_categories():
     conn = model.engine.connect()
-    sql = sqla.select([model.categories.c.category_id, model.categories.c.name, model.categories.c.project_id, model.categories.c.owner_id, model.categories.c.settings])
+    sql = sqla.select([model.categories.c.category_id, model.categories.c.name, model.categories.c.project_id, model.categories.c.owner_id, model.categories.c.settings]).order_by(model.categories.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'categories': [dict(row) for row in result]}), 200
 
@@ -384,7 +384,7 @@ def delete_category(category_id):
 def get_category_byproject_id(project_id):
     conn = model.engine.connect()
     sql = sqla.select([model.categories.c.category_id, model.categories.c.name, model.categories.c.project_id, model.categories.c.owner_id, model.categories.c.settings]).where(
-        model.categories.c.project_id == project_id)
+        model.categories.c.project_id == project_id).order_by(model.categories.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -396,7 +396,7 @@ def get_category_byproject_id(project_id):
 def get_classifications():
     conn = model.engine.connect()
     sql = sqla.select([model.classifications.c.classification_id, model.classifications.c.name, model.classifications.c.type, model.classifications.c.data,
-                       model.classifications.c.project_id, model.classifications.c.owner_id, model.classifications.c.settings])
+                       model.classifications.c.project_id, model.classifications.c.owner_id, model.classifications.c.settings]).order_by(model.classifications.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'classifications': [dict(row) for row in result]}), 200
 
@@ -567,7 +567,7 @@ def delete_categories_classifications_byfilter(category_id, classification_id):
 @token_required
 def get_labels():
     conn = model.engine.connect()
-    sql = sqla.select([model.labels.c.label_id, model.labels.c.name, model.labels.c.project_id, model.labels.c.owner_id])
+    sql = sqla.select([model.labels.c.label_id, model.labels.c.name, model.labels.c.project_id, model.labels.c.owner_id]).order_by(model.labels.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'labels': [dict(row) for row in result]}), 200
 
@@ -633,7 +633,7 @@ def delete_label(label_id):
 def get_label_byproject_id(project_id):
     conn = model.engine.connect()
     sql = sqla.select([model.labels.c.label_id, model.labels.c.name, model.labels.c.project_id, model.labels.c.owner_id]).where(
-        model.labels.c.project_id == project_id)
+        model.labels.c.project_id == project_id).order_by(model.labels.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -644,7 +644,7 @@ def get_label_byproject_id(project_id):
 @token_required
 def get_images():
     conn = model.engine.connect()
-    sql = sqla.select([model.images.c.image_id, model.images.c.name, model.images.c.uri, model.images.c.type, model.images.c.resolution, model.images.c.project_id, model.images.c.owner_id])
+    sql = sqla.select([model.images.c.image_id, model.images.c.name, model.images.c.uri, model.images.c.type, model.images.c.resolution, model.images.c.project_id, model.images.c.owner_id]).order_by(model.images.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'images': [dict(row) for row in result]}), 200
 
@@ -859,7 +859,7 @@ def get_image_url(image_id, thumb, sub_filename):
 def get_image_byproject_id(project_id):
     conn = model.engine.connect()
     sql = sqla.select([model.images.c.image_id, model.images.c.name, model.images.c.uri, model.images.c.type, model.images.c.resolution, model.images.c.project_id, model.images.c.owner_id]).where(
-        model.images.c.project_id == project_id)
+        model.images.c.project_id == project_id).order_by(model.images.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -994,7 +994,7 @@ def upload_file():
 def get_annotations():
     conn = model.engine.connect()
     sql = sqla.select([model.annotations.c.annotation_id, model.annotations.c.name, model.annotations.c.status, model.annotations.c.shared, model.annotations.c.image_id,
-                       model.annotations.c.project_id, model.annotations.c.category_id, model.annotations.c.owner_id])
+                       model.annotations.c.project_id, model.annotations.c.category_id, model.annotations.c.owner_id]).order_by(model.annotations.c.name.asc())
     result = conn.execute(sql)
     return jsonify({'annotations': [dict(row) for row in result]}), 200
 
@@ -1070,7 +1070,7 @@ def get_annotation_byproject_id(project_id):
     conn = model.engine.connect()
     sql = sqla.select([model.annotations.c.annotation_id, model.annotations.c.name, model.annotations.c.status, model.annotations.c.shared, model.annotations.c.image_id,
                        model.annotations.c.project_id, model.annotations.c.category_id, model.annotations.c.owner_id]).where(
-        model.annotations.c.project_id == project_id)
+        model.annotations.c.project_id == project_id).order_by(model.annotations.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -1083,7 +1083,7 @@ def get_annotation_bycategory_id(category_id):
     conn = model.engine.connect()
     sql = sqla.select([model.annotations.c.annotation_id, model.annotations.c.name, model.annotations.c.status, model.annotations.c.shared, model.annotations.c.image_id,
                        model.annotations.c.project_id, model.annotations.c.category_id, model.annotations.c.owner_id]).where(
-        model.annotations.c.category_id == category_id)
+        model.annotations.c.category_id == category_id).order_by(model.annotations.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -1096,7 +1096,7 @@ def get_annotation_byimage_id(image_id):
     conn = model.engine.connect()
     sql = sqla.select([model.annotations.c.annotation_id, model.annotations.c.name, model.annotations.c.status, model.annotations.c.shared, model.annotations.c.image_id,
                        model.annotations.c.project_id, model.annotations.c.category_id, model.annotations.c.owner_id]).where(
-        model.annotations.c.image_id == image_id)
+        model.annotations.c.image_id == image_id).order_by(model.annotations.c.name.asc())
     result = conn.execute(sql)
     if result.rowcount == 0:
         abort(404)
@@ -1200,7 +1200,7 @@ def delete_annotations_labels_byfilter(annotation_id, label_id):
 def get_layers():
     conn = model.engine.connect()
     sql = sqla.select([model.layers.c.layer_id, model.layers.c.name, model.layers.c.data, model.layers.c.image_id, model.layers.c.sequence, model.layers.c.parent_id, model.layers.c.annotation_id, model.layers.c.owner_id])
-    result = conn.execute(sql)
+    result = conn.execute(sql).order_by(model.layers.c.sequence.asc())
     return jsonify({'layers': [dict(row) for row in result]}), 200
 
 
@@ -1309,7 +1309,7 @@ def get_layers_byfilter(annotation_id, sequence):
 @token_required
 def get_comments():
     conn = model.engine.connect()
-    sql = sqla.select([model.comments.c.comment_id, model.comments.c.content, model.comments.c.sequence, model.comments.c.layer_id, model.comments.c.owner_id])
+    sql = sqla.select([model.comments.c.comment_id, model.comments.c.content, model.comments.c.sequence, model.comments.c.layer_id, model.comments.c.owner_id]).order_by(model.comments.c.sequence.asc())
     result = conn.execute(sql)
     return jsonify({'comments': [dict(row) for row in result]}), 200
 

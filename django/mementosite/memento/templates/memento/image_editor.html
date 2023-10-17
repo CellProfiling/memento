@@ -353,7 +353,7 @@ function setupBaseCanvas() {
         });
         layerCanvas.set('canvas_id', obj.id.replace("canvas-layer", ""));
         canvasArray[i + 1] = layerCanvas;
-        if (typeof obj.getAttribute("datajson") !== 'undefined' && obj.getAttribute("datajson") !== null && obj.getAttribute("datajson") !== '') {
+        if (typeof obj.getAttribute("datajson") !== 'undefined' && obj.getAttribute("datajson") !== null && obj.getAttribute("datajson") !== '' && obj.getAttribute("datajson") !== 'none') {
             layerCanvas.isImage = false;
             layerCanvas.loadFromJSON(obj.getAttribute("datajson"));
             obj.setAttribute("datajson", "");
@@ -412,10 +412,15 @@ function setupBaseCanvas() {
             }
             $("#zoomIndicator").html(Math.floor(finalZoom * 100) + '%');
             oImg.set('selectable', false);
-            activateLayer(0);
             initCanvas.isDragging = false;
             initCanvas.selection = true;
             $("#canvas-menu-layerlist").show();
+            if ({% if defaultlayer %}{{ defaultlayer }}{% else %}0{% endif %} > 0) {
+               $("#canvas-image").parent().parent().hide();
+            } else {
+               activateLayer(0);
+            }
+            filterLayers();
         }
     });
 }

@@ -237,14 +237,18 @@ function load_next_annotations() {
 
 var clastype = '{% if clastype %}{{ clastype }}{% else %}i{% endif %}';
 
-function update_classification(category_id, classification_id, selIcon, selLetter) {
-   if (classification_id == 0) {
+function update_classification(category_id, classificationIds, classificationIcons, classificationLetters) {
+   if (classificationIds.length == 0) {
       $("#mark-classification" + category_id).hide();
    } else {
       if (clastype == 'i') {
-         $("#mark-classification" + category_id).html("<i class=\"material-icons-outlined\" style=\"vertical-align:middle\">" + selIcon + "</i>");
+         iconListHtml = "";
+         for (let i = 0; i < classificationIcons.length; i++) {
+            iconListHtml += "<i class=\"material-icons-outlined\" style=\"vertical-align:middle\">" + classificationIcons[i] + "</i>";
+         }
+         $("#mark-classification" + category_id).html(iconListHtml);
       } else {
-         $("#mark-classification" + category_id).html(selLetter);
+         $("#mark-classification" + category_id).html(selLetter.join());
       }
       $("#mark-classification" + category_id).show();
    }
@@ -374,7 +378,7 @@ $(document).ready(function () {
          {% for category in request.session.allowed_categories %}
             <li id="listCategory{{ category.id }}" class="imagelist-row {% if forloop.first %} imagelist-active{% endif %}">
                <div class="d-flex flex-row" style="align-content:center;align-items:center">
-                  <a id="categoryLink{{ category.id }}" href="#" {% if not request.session.selected_share %}onclick="loadCategory({{ category.id }})"{% endif %}><span class="field-value" style="margin:auto;vertical-align:middle">{{ category.name }}</span><span id="mark-classification{{ category.id }}" class="yellow-selected" style="font-size:24px;white-space:nowrap;margin-left:5px;vertical-align:middle;{% if not category.classification %}display:none">{% else %}">{% if clastype == 'l' %}{{category.classification}}{% else %}<i class="material-icons-outlined" style="vertical-align:middle">{{category.classification}}</i>{% endif %}{% endif %}</span></a>
+                   <a id="categoryLink{{ category.id }}" href="#" {% if not request.session.selected_share %}onclick="loadCategory({{ category.id }})"{% endif %}><span class="field-value" style="margin:auto;vertical-align:middle">{{ category.name }}</span><span id="mark-classification{{ category.id }}" class="yellow-selected" style="font-size:24px;white-space:nowrap;margin-left:5px;vertical-align:middle;{% if not category.classification %}display:none">{% else %}">{% for curr_class in category.classification %}{% if clastype == 'l' %}{{ curr_class }}{% else %}<i class="material-icons-outlined" style="vertical-align:middle">{{ curr_class }}</i>{% endif %}{% endfor %}{% endif %}</span></a>
                </div>
                <ul class="collapse list-unstyled imagelist-list" id="catSubmenu{{ category.id }}">
                </ul>
