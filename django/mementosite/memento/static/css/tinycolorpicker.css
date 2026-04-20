@@ -1,0 +1,60 @@
+/* COLORPICKER 1 EXAMPLE */
+#colorPicker
+{
+    width:          30px;
+    height:         30px;
+    position: relative;
+    clear: both;
+}
+
+#colorPicker .track {
+    background:     rgba(0, 0, 0, 0.0) url(/memento/static/images/text-color.png) no-repeat 50% 50%;
+    height:         100px;
+    width:          100px;
+    margin-left:        10px;
+    margin-top:        10px;
+    position:       absolute;
+    cursor:         crosshair;
+    float:          left;
+    left:           -48px;
+    top:            -48px;
+    display:        none;
+    z-index:        10;
+}
+
+#colorPicker .color {
+    width:          25px;
+    height:         25px;
+    display:        block;
+    position:       relative;
+    z-index:        11;
+    background-color: #EFEFEF;
+    -webkit-border-radius: 27px;
+    -moz-border-radius: 27px;
+    border-radius: 27px;
+    cursor: pointer;
+}
+
+#colorPicker .colorInner {
+    width:          25px;
+    height:         25px;
+    -webkit-border-radius: 27px;
+    -moz-border-radius: 27px;
+    border-radius: 27px;
+}
+
+#colorPicker .dropdown {
+    list-style: none;
+    display: none;
+    width: 27px;
+    position: absolute;
+    top: 28px;
+    border: 1px solid #ccc;
+    left: 0;
+    z-index: 1000;
+}
+
+#colorPicker .dropdown li{
+    height: 25px;
+    cursor: pointer;
+}

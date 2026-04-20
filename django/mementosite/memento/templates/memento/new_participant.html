@@ -1,0 +1,34 @@
+{% extends "memento/base_main.html" %}
+
+{% block main-content %}
+<div class="main-container">
+<div class="main-container-options">
+   <div>
+      {% if request.session.selected_project_annotation_id %}
+      <a href="{% url 'edit_annotation' %}?annotation_id={{ request.session.selected_project_annotation_id }}" class="btn btn-secondary"><i class="material-icons-outlined" style="vertical-align:middle;font-size:18px">arrow_back</i> Back</a>
+      {% elif request.session.selected_project_category_id %}
+      <a href="{% url 'edit_category' %}?category_id={{ request.session.selected_project_category_id }}" class="btn btn-secondary"><i class="material-icons-outlined" style="vertical-align:middle;font-size:18px">arrow_back</i> Back</a>
+      {% else %}
+      <a href="{% url 'edit_project' %}?project_id={{ request.session.selected_project_id }}" class="btn btn-secondary"><i class="material-icons-outlined" style="vertical-align:middle;font-size:18px">arrow_back</i> Back</a>
+      {% endif %}
+   </div>
+   <div class="container-category">
+      <div>
+         <p class="main-category-title">New participant</p>
+      </div>
+      <form method="post" action="{% url 'new_participant' %}">
+         {% csrf_token %}
+         <div class="form-group">
+            <select class="form-control" id="{{ form.user_id.id_for_label }}" name="{{ form.user_id.html_name }}">
+               {% for username in usernames %}
+               <option value="{{ username.id }}">{{ username.username }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+   </div>
+</div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,50 @@
+<div class="annotation-grid">
+   {% for label in labels %}
+   <button id="label{{ label.id }}" type="button" class="btn {% if label.active %}btn-warning annotation_option" active="true"{% else %}btn-secondary annotation_option"{% endif %} {% if fastannotation %}annotation_option="{{ forloop.counter }}"{% endif %} style="margin:10px" onclick="toggleLabel({{ label.id }})">{% if fastannotation %}{{ forloop.counter }}.&nbsp;{% endif %}{{ label.name }}</button>
+   {% endfor %}
+   <button id="submit_annotations" type="button" class="btn btn-primary" style="margin:10px" onclick="submitAnnotation()">{% if status == 'S' %}Submit again{% else %}Submit{% endif %}</button>
+   <i id="labellistCollapse" class="material-icons-outlined expand-icon white" style="margin-top:5px">keyboard_arrow_up</i>
+</div>
+
+<script>
+$('#labellistCollapse').on('click', function () {
+   $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+   $('#labellistExpand').toggle({duration: 1000});
+});
+
+function toggleLabel(label_id) {
+    if ($("#label" + label_id).hasClass("btn-secondary")) {
+        {% if annotationexclusive %}
+        $(".annotation_option").removeClass("btn-warning");
+        $(".annotation_option").removeClass("btn-secondary");
+        $(".annotation_option").addClass("btn-secondary")
+        $(".annotation_option").attr("active", "false");
+        {% endif %}
+        $("#label" + label_id).removeClass("btn-secondary");
+        $("#label" + label_id).addClass("btn-warning");
+        $("#label" + label_id).attr("active", "true");
+    } else {
+        $("#label" + label_id).removeClass("btn-warning");
+        $("#label" + label_id).addClass("btn-secondary");
+        $("#label" + label_id).attr("active", "false");
+    }
+}
+
+function submitAnnotation() {
+   var listLabels = [];
+   $('button[active="true"]').each(function(i, obj) {
+      listLabels.push(obj.id.substring(5));
+   });
+
+   $.ajax({url: "{% url 'submit_annotation_labels' %}?labels=" + listLabels.join(), success: function(result){
+      if (result == "ok") {
+        $("#submit_annotations").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+        $("#submit_annotations").addClass("btn-success").delay(1000).queue(function(){$("#submit_annotations").removeClass("btn-success").addClass("btn-primary").dequeue();});
+        remove_next_annotation('{{ request.session.selected_project_category_id }}', '{{ request.session.selected_project_annotation_id }}');
+      } else {
+        $("#submit_annotations").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+        $("#submit_annotations").addClass("btn-danger").delay(1000).queue(function(){$("#submit_annotations").removeClass("btn-danger").addClass("btn-primary").dequeue();});
+      }
+   }});
+}
+</script>

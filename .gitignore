@@ -1,0 +1,14 @@
+# Django
+db.sqlite3
+__pycache__/
+*.pyc
+
+# Python virtualenv
+.venv/
+
+# IDE
+.idea/
+
+# Import scripts (contain local credentials/paths)
+cl/*
+!cl/memento_cl.py

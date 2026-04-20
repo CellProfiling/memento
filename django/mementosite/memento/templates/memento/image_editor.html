@@ -1,0 +1,1325 @@
+<script>
+
+fabric.Image.filters.MakeTransparent = fabric.util.createClass(fabric.Image.filters.BaseFilter, {
+   type: 'MakeTransparent',
+   fragmentSource:
+   'precision highp float;\n' +
+   'uniform sampler2D uTexture;\n' +
+   'uniform float uTransparencyFilter;\n' +
+   'uniform float uTransparency;\n' +
+   'varying vec2 vTexCoord;\n' +
+   'void main() {\n' +
+   'vec4 color = texture2D(uTexture, vTexCoord);\n' +
+   'if (uTransparencyFilter != 0.0) {' +
+   '    color.a = max(color.r, max(color.g, color.b)) * uTransparencyFilter;\n' +
+   '}' +
+   'color.a = color.a * uTransparency;\n' +
+   'gl_FragColor = color;\n' +
+   '}',
+
+   getUniformLocations: function(gl, program) {
+      return {
+         uTransparencyFilter: gl.getUniformLocation(program, 'uTransparencyFilter'),
+         uTransparency: gl.getUniformLocation(program, 'uTransparency'),
+      };
+   },
+
+   sendUniformData: function(gl, uniformLocations) {
+      gl.uniform1f(uniformLocations.uTransparencyFilter, this.v_transparency_filter);
+      gl.uniform1f(uniformLocations.uTransparency, this.v_transparency);
+   },
+
+   applyTo2d: function(options) {
+      var imageData = options.imageData,
+      data = imageData.data, i, len = data.length;
+      for (i = 0; i < len; i += 4) {
+         if (this.v_transparency_filter != 0.0) {
+            data[i + 3] = Math.max(data[i], Math.max(data[i + 1], data[i + 2])) * this.v_transparency_filter;
+         }
+         data[i + 3] = data[i + 3] * this.v_transparency;
+      }
+   }
+});
+
+fabric.Image.filters.MakeTransparent.fromObject = fabric.Image.filters.BaseFilter.fromObject;
+
+fabric.Image.filters.ClipPixelRange = fabric.util.createClass(fabric.Image.filters.BaseFilter, {
+   type: 'ClipPixelRange',
+   fragmentSource:
+   'precision highp float;\n' +
+   'uniform sampler2D uTexture;\n' +
+   'uniform float uMinvalue;\n' +
+   'uniform float uMaxvalue;\n' +
+   'varying vec2 vTexCoord;\n' +
+   'void main() {\n' +
+   'vec4 color = texture2D(uTexture, vTexCoord);\n' +
+   'if (color.r < uMinvalue) {' +
+   '    color.r = 0.0;' +
+   '} else {' +
+   '    color.r = min(1.0, color.r * uMaxvalue);' +
+   '}' +
+   'if (color.g < uMinvalue) {' +
+   '    color.g = 0.0;' +
+   '} else {' +
+   '    color.g = min(1.0, color.g * uMaxvalue);' +
+   '}' +
+   'if (color.b < uMinvalue) {' +
+   '    color.b = 0.0;' +
+   '} else {' +
+   '    color.b = min(1.0, color.b * uMaxvalue);' +
+   '}' +
+   'gl_FragColor = color;\n' +
+   '}',
+
+   getUniformLocations: function(gl, program) {
+      return {
+         uMinvalue: gl.getUniformLocation(program, 'uMinvalue'),
+         uMaxvalue: gl.getUniformLocation(program, 'uMaxvalue'),
+      };
+   },
+
+   sendUniformData: function(gl, uniformLocations) {
+      gl.uniform1f(uniformLocations.uMinvalue, this.v_minvalue);
+      gl.uniform1f(uniformLocations.uMaxvalue, this.v_maxvalue);
+   },
+
+   applyTo2d: function(options) {
+      var imageData = options.imageData,
+      data = imageData.data, i, len = data.length;
+      for (i = 0; i < len; i += 4) {
+         if (data[i] < this.v_minvalue) {
+            data[i] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
+         } else {
+            data[i] = data[i] * bitDepth / this.v_maxvalue;
+            data[i + 1] = data[i + 1] * bitDepth / this.v_maxvalue;
+            data[i + 2] = data[i + 2] * bitDepth / this.v_maxvalue;
+         }
+      }
+   }
+});
+
+fabric.Image.filters.ClipPixelRange.fromObject = fabric.Image.filters.BaseFilter.fromObject;
+
+
+function getImageURL(url, isExternal, image_id) {
+   try {
+      const urlObject = new URL(isExternal ? url : 'media/' + image_id + '/none');
+      return url;
+   } catch (error) {
+      return (isExternal ? url : 'media/' + image_id + '/none');
+   }
+}
+
+function adjustImage(img) {
+   img.filters = [];
+   var clippr = new fabric.Image.filters.ClipPixelRange({
+      v_minvalue: img.v_minvalue,
+      v_maxvalue: img.v_maxvalue
+   });
+   img.filters.push(clippr);
+   transparency = new fabric.Image.filters.MakeTransparent({
+      v_transparency_filter: img.v_transparency_filter,
+      v_transparency: img.v_transparency
+   });
+   img.filters.push(transparency);
+   if (img.v_color != "no") {
+      var blcol = new fabric.Image.filters.BlendColor({
+         color: img.v_color,
+         mode: 'tint',
+         alpha: 1.0
+      });
+      img.filters.push(blcol);
+   }
+   img.applyFilters();
+}
+
+function calculateMinMax(img, index) {
+   var sampleSize = 256;
+   var offscreen = document.createElement('canvas');
+   offscreen.width = sampleSize;
+   offscreen.height = sampleSize;
+   var ctx = offscreen.getContext("2d");
+   ctx.imageSmoothingEnabled = true;
+   ctx.drawImage(img.getElement(), 0, 0, sampleSize, sampleSize);
+   var img_raw_data = ctx.getImageData(0, 0, sampleSize, sampleSize);
+   var listpositivepixel = [];
+   var i = 0;
+   while (i < img_raw_data.data.length) {
+     if (img_raw_data.data[i] > 0) {
+       listpositivepixel.push(img_raw_data.data[i]);
+     }
+     i = i + 1;
+     if ((i + 1) % 4 == 0) {
+        i = i + 1;
+     }
+   }
+   listpositivepixel.sort(d3.ascending);
+   img.v_minvalue_optimal = parseFloat(Math.floor(d3.quantile(listpositivepixel, 0.01)) / parseFloat(bitDepth));
+   img.v_maxvalue_optimal = parseFloat(bitDepth) / parseFloat(Math.floor(d3.quantile(listpositivepixel, 0.99)));
+}
+
+function getPointReserver() {
+   var pointReserve = new fabric.Circle({
+         radius: 0,
+         fill: "#000000",
+         opacity: 0.0,
+         left: 0,
+         top: 0,
+         selectable: false
+   });
+   return pointReserve;
+}
+
+var bookingQueue = [];
+var isBooking = false;
+
+function processBookingQueue() {
+   if (isBooking || bookingQueue.length === 0) return;
+   isBooking = true;
+   var item = bookingQueue.shift();
+   canvas.insertAt(item.img_object, item.index);
+   var objectToRemove = canvas.getObjects()[item.index + 1];
+   canvas.remove(objectToRemove);
+   isBooking = false;
+   processBookingQueue();
+}
+
+function bookObject(img_object, index) {
+   bookingQueue.push({ img_object: img_object, index: index });
+   processBookingQueue();
+}
+
+function loadChannelImage(img_index, layer_id, img_id, img_url_orig, img_url, img_name, img_clip, img_transparency, img_color, img_default) {
+   (function(img_index, img_url) {
+      var imgElement = fabric.Image.fromURL(img_url, function(oImg) {
+         oImg.layer_img_id = img_id;
+         oImg.layer_layer_id = layer_id;
+         oImg.layer_img_url_orig = img_url_orig;
+         oImg.layer_img_url = img_url;
+         oImg.layer_img_name = img_name;
+         oImg.layer_img_clip = img_clip;
+         oImg.layer_img_transparency = img_transparency;
+         oImg.layer_img_color = img_color;
+         oImg.layer_img_visible = img_default;
+         calculateMinMax(oImg, img_index);
+
+         if (img_clip != "" && img_clip != "no") {
+           if (img_clip != "auto") {
+             oImg.v_minvalue = parseFloat(img_clip.split("-")[ 0 ]) / parseFloat(bitDepth);
+             oImg.v_maxvalue = parseFloat(bitDepth) / parseFloat(img_clip.split("-")[ 1 ]);
+           } else {
+             oImg.v_minvalue = oImg.v_minvalue_optimal
+             oImg.v_maxvalue = oImg.v_maxvalue_optimal;
+           }
+         } else {
+           oImg.v_minvalue = 0.0;
+           oImg.v_maxvalue = 1.0;
+         }
+
+         var sliderIntensityMin = Math.floor(oImg.v_minvalue * parseFloat(bitDepth));
+         var sliderIntensityMax = Math.min(bitDepth, Math.floor(parseFloat(bitDepth) / oImg.v_maxvalue));
+         $( "#sliderChannelIntensity" + layer_id ).slider( "option", "values", [ sliderIntensityMin, sliderIntensityMax ] );
+         $( "#sliderChannelIntensityValueMin" + layer_id ).val( sliderIntensityMin);
+         $( "#sliderChannelIntensityValueMax" + layer_id ).val( sliderIntensityMax);
+
+         if (img_transparency != "" && img_transparency != "no") {
+            oImg.v_transparency_filter = parseFloat(img_transparency);
+         } else {
+            oImg.v_transparency_filter = 0.0;
+         }
+         oImg.v_transparency = 1.0;
+         if (img_color != "" && img_color != "no") {
+            oImg.v_color = String(img_color);
+         } else {
+            oImg.v_color = "no";
+         }
+         oImg.opacity = (oImg.layer_img_visible == "visible" ? 1 : 0);
+         channelImgs[parseInt(img_index)] = oImg;
+         if (resolution != null) {
+            oImg.scaleToWidth(resolution[0]);
+            oImg.scaleToHeight(resolution[1]);
+         }
+         bookObject(oImg, img_index);
+         oImg.set('selectable', false);
+         adjustImage(oImg);
+         if (channelImgs[0] == oImg) {
+            var imgWidth = resolution == null ? oImg.width : resolution[0];
+            var imgHeight = resolution == null ? oImg.height : resolution[1];
+            var finalZoom = Math.min(canvas.height / imgHeight, canvas.width / imgWidth);
+            calculateZoomIndicator(finalZoom);
+            canvas.setZoom(finalZoom);
+            var vpt = canvas.viewportTransform;
+            vpt[4] += canvas.height / imgHeight < canvas.width / imgWidth ? (canvas.width / 2) * finalZoom : 0;
+            vpt[5] += canvas.height / imgHeight > canvas.width / imgWidth ? (canvas.height / 2) * finalZoom : 0;
+            canvas.requestRenderAll();
+
+            for (const key of dataCanvasArray.keys()) {
+               dataCanvasArray.get(key).setZoom(finalZoom);
+               var basevpt = canvas.viewportTransform;
+               var vpt = dataCanvasArray.get(key).viewportTransform;
+               vpt[4] = basevpt[4];
+               vpt[5] = basevpt[5];
+               dataCanvasArray.get(key).setViewportTransform(dataCanvasArray.get(key).viewportTransform);
+               dataCanvasArray.get(key).requestRenderAll();
+            }
+         }
+         loadedChannels = loadedChannels + 1;
+      },{ crossOrigin: 'anonymous' });
+   })(img_index, img_url);
+}
+
+function activateMainCanvas() {
+   canvas.on('mouse:wheel', function(opt) {
+      if (!retexturing) {
+         var delta = opt.e.deltaY;
+         var zoom = this.getZoom();
+         zoom *= 0.999 ** delta;
+         if (zoom > 20) zoom = 20;
+         if (zoom < 0.05) zoom = 0.05;
+         calculateZoomIndicator(zoom);
+         this.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+         for (const key of dataCanvasArray.keys()) {
+            dataCanvasArray.get(key).zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+         }
+         render_deepest_level();
+         opt.e.preventDefault();
+         opt.e.stopPropagation();
+      }
+   });
+   canvas.on('mouse:down', function(opt) {
+      if (!retexturing) {
+         var evt = opt.e;
+         this.isDragging = true;
+         this.lastPosX = evt.clientX;
+         this.lastPosY = evt.clientY;
+         for (const key of dataCanvasArray.keys()) {
+            dataCanvasArray.get(key).lastPosX = evt.clientX;
+            dataCanvasArray.get(key).lastPosY = evt.clientY;
+         }
+      }
+   });
+   canvas.on('mouse:move', function(opt) {
+      if (!retexturing) {
+         if (this.isDragging) {
+            var e = opt.e;
+            var vpt = this.viewportTransform;
+            vpt[4] += e.clientX - this.lastPosX;
+            vpt[5] += e.clientY - this.lastPosY;
+            this.requestRenderAll();
+            this.lastPosX = e.clientX;
+            this.lastPosY = e.clientY;
+
+            for (const key of dataCanvasArray.keys()) {
+               var vpt = dataCanvasArray.get(key).viewportTransform;
+               vpt[4] += e.clientX - dataCanvasArray.get(key).lastPosX;
+               vpt[5] += e.clientY - dataCanvasArray.get(key).lastPosY;
+               dataCanvasArray.get(key).requestRenderAll();
+               dataCanvasArray.get(key).lastPosX = e.clientX;
+               dataCanvasArray.get(key).lastPosY = e.clientY;
+            }
+         }
+      }
+   });
+   canvas.on('mouse:up', function(opt) {
+      if (!retexturing) {
+         this.setViewportTransform(this.viewportTransform);
+         for (const key of dataCanvasArray.keys()) {
+            dataCanvasArray.get(key).setViewportTransform(dataCanvasArray.get(key).viewportTransform);
+         }
+         this.isDragging = false;
+      }
+   });
+}
+
+function deactivateMainCanvas() {
+   canvas.off();
+}
+
+var retextureScheduled = false;
+function scheduleRetexture() {
+   if (!retextureScheduled) {
+      retextureScheduled = true;
+      setTimeout(retexture_tiles, 50);
+   }
+}
+
+function retexture_tiles(){
+   retextureScheduled = false;
+   if (!retexturing && tilesToRetexture.length > 0) {
+      document.getElementById("retexturing-indicator").style.display = "block";
+      var texturedImage = tilesToRetexture[0];
+      (function(texturedImage) {
+         var imageIndex = parseInt(texturedImage.split("_")[0].replace('img', ''));
+         if (channelImgs[imageIndex] != null) {
+            if (channelImgs[imageIndex].filters != null) {
+               var imageURLorig = channelImgs[imageIndex].layer_img_url_orig;
+               var filename = imageURLorig.substring(0, imageURLorig.length - 4);
+               var extension = imageURLorig.substring(imageURLorig.length - 4);
+               imageURL = 'media/' + channelImgs[imageIndex].layer_img_id + '/subfile' + filename + texturedImage.substring(texturedImage.split("_")[0].length);
+               var imgElement = fabric.Image.fromURL(imageURL, function(oImg) {
+                  if (oImg == null) {
+                     retexture_tiles();
+                  } else {
+                     if (channelImgs[imageIndex] != null) {
+                        oImg.layer_img_id = channelImgs[imageIndex].layer_img_id;
+                        oImg.layer_img_url = channelImgs[imageIndex].layer_img_url;
+                        oImg.layer_img_name = channelImgs[imageIndex].layer_img_name;
+                        oImg.layer_img_clip = channelImgs[imageIndex].layer_img_clip;
+                        oImg.layer_img_transparency = channelImgs[imageIndex].layer_img_transparency;
+                        oImg.layer_img_color = channelImgs[imageIndex].layer_img_color;
+                        oImg.v_minvalue_optimal = channelImgs[imageIndex].v_minvalue_optimal;
+                        oImg.v_maxvalue_optimal = channelImgs[imageIndex].v_maxvalue_optimal;
+                        oImg.v_minvalue = channelImgs[imageIndex].v_minvalue;
+                        oImg.v_maxvalue = channelImgs[imageIndex].v_maxvalue;
+                        oImg.v_transparency_filter = channelImgs[imageIndex].v_transparency_filter;
+                        oImg.v_transparency = channelImgs[imageIndex].v_transparency;
+                        oImg.v_color = channelImgs[imageIndex].v_color;
+                        var zdim = parseInt(texturedImage.split("_")[1].replace('z', ''));
+                        var x = parseInt(texturedImage.split("_")[2].replace('x', ''));
+                        var y = parseInt(texturedImage.split("_")[3].replace('y', ''));
+                        var pyramidIndex = 0;
+                        var currzdim = maxzdim;
+                        while (zdim / 1024 != currzdim) {
+                           currzdim = currzdim / 2;
+                           pyramidIndex = pyramidIndex + 1;
+                        }
+                        tile_index = pyramidInfo[pyramidIndex][1] + (x / zdim) * pyramidInfo[pyramidIndex][0] + (y / zdim);
+                        channelImgsTiles[imageIndex][tile_index] = oImg;
+                        oImg.scaleToWidth(zdim);
+                        oImg.scaleToHeight(zdim);
+                        oImg.set({ left: x, top: y });
+                        bookObject(oImg, imageIndex + tile_index * (1 + imageIndex));
+                        oImg.set('selectable', false);
+                        oImg.opacity = 0.0;
+                        adjustImage(oImg);
+                        if (texturedImage.indexOf("_x0_y0") > 0) {
+                           imgLevelRetextured.push(imageIndex + "_" + zdim);
+                        }
+                     }
+                     tilesToRetexture.splice(0, 1);
+                     retexture_tiles();
+                  }
+               });
+            } else {
+               setTimeout(retexture_tiles, 50);
+            }
+         } else {
+            tilesToRetexture.splice(0, 1);
+            retexture_tiles();
+         }
+      })(texturedImage);
+   } else {
+      document.getElementById("retexturing-indicator").style.display = "none";
+      if (retexturing) {
+         scheduleRetexture();
+      }
+   }
+}
+
+function render_deepest_level() {
+   for (i = 0; i < channelImgsLevel.length; i++) {
+   var currChannelLevel = channelImgsLevel[i]
+   if (currChannelLevel != null && currChannelLevel * 2 > minTileResolution / 1024) {
+      zdim = 1024 * (currChannelLevel);
+      if (imgLevelRetextured.includes(i + "_" + (zdim / 2)) || tilesToRetexture.length == 0) {
+         retexturing = true;
+         var pyramidIndex = 0;
+         var currzdim = maxzdim;
+         while (zdim / 1024 != currzdim) {
+            currzdim = currzdim / 2;
+            pyramidIndex = pyramidIndex + 1;
+         }
+         for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
+            for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
+               tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
+               if (channelImgsTiles[i][tile_index] != null) {
+                  channelImgsTiles[i][tile_index].opacity = (channelImgs[i].layer_img_visible == "visible" ? 1.0 : 0.0);
+               }
+            }
+         }
+         if (currChannelLevel == maxzdim) {
+            channelImgs[i].opacity = 0.0;
+         } else {
+            pyramidIndex = pyramidIndex - 1;
+            for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
+               for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
+                  tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
+                  if (channelImgsTiles[i][tile_index] != null) {
+                     channelImgsTiles[i][tile_index].opacity = 0.0;
+                     canvas.remove(channelImgsTiles[i][tile_index]);
+                     delete channelImgsTiles[i][tile_index];
+                  }
+               }
+            }
+         }
+         channelImgsLevel[i] = Math.floor(currChannelLevel / 2);
+         canvas.requestRenderAll();
+         var index = imgLevelRetextured.indexOf(i + "_" + (zdim / 2));
+         if (index > -1) {
+            imgLevelRetextured.splice(index, 1);
+         }
+
+         retexturing = false;
+      }
+   }
+   }
+
+}
+
+function retexture_image(img_index) {
+   var curr_maxzdim = maxzdim;
+   while (curr_maxzdim > 0 + (minTileResolution / 1024) - 1) {
+      var zdim = 1024 * curr_maxzdim;
+      var num_tiles_x = Math.floor(resolution[0] / zdim) + (resolution[0] % zdim > 0 ? 1 : 0);
+      var num_tiles_y = Math.floor(resolution[1] / zdim) + (resolution[1] % zdim > 0 ? 1 : 0);
+      for (let i = 0; i < num_tiles_x; i++) {
+         for (let j = 0; j < num_tiles_y; j++) {
+            var xdim = i * zdim;
+            var ydim = j * zdim;
+            var currentTile = "img" + img_index + "_z" + zdim + "_x" + xdim + "_y" + ydim;
+            tilesToRetexture.push(currentTile);
+         }
+      }
+      curr_maxzdim = Math.floor(curr_maxzdim / 2);
+   }
+}
+
+function retexture_images() {
+   var curr_maxzdim = maxzdim;
+   while (curr_maxzdim > 0 + (minTileResolution / 1024) - 1) {
+      var zdim = 1024 * curr_maxzdim;
+      var num_tiles_x = Math.floor(resolution[0] / zdim) + (resolution[0] % zdim > 0 ? 1 : 0);
+      var num_tiles_y = Math.floor(resolution[1] / zdim) + (resolution[1] % zdim > 0 ? 1 : 0);
+      for (let i = 0; i < num_tiles_x; i++) {
+         for (let j = 0; j < num_tiles_y; j++) {
+            var xdim = i * zdim;
+            var ydim = j * zdim;
+            var currentTile = "img" + (numImages - 1) + "_z" + zdim + "_x" + xdim + "_y" + ydim;
+            for (let k = 0; k < channelImgs.length; k++) {
+               if (channelImgs[k] != null) {
+                  filename = "img" + k + "_z" + zdim + "_x" + xdim + "_y" + ydim;
+                  tilesToRetexture.push(filename);
+               }
+            }
+         }
+      }
+      curr_maxzdim = Math.floor(curr_maxzdim / 2);
+   }
+}
+
+function toggleChannel(layer_id, state) {
+   if (!retexturing) {
+      index = layerArray.get(layer_id.toString());
+      if (state) {
+         channelImgs[index].opacity = 1;
+         if (resolution != null) {
+            var currChannelLevel = channelImgsLevel[index - 1];
+            if (currChannelLevel != null && currChannelLevel != maxzdim) {
+               channelImgs[index].opacity = 0;
+               var pyramidIndex = 0;
+               if (currChannelLevel > 0) {
+                  var currzdim = maxzdim;
+                  while (currChannelLevel * 2 < currzdim) {
+                     currzdim = currzdim / 2;
+                     pyramidIndex = pyramidIndex + 1;
+                  }
+               } else {
+                  pyramidIndex = 4;
+               }
+               for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
+                  for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
+                     tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
+                     if (channelImgsTiles[index ][tile_index] != null) {
+                        channelImgsTiles[index][tile_index].opacity = 1.0;
+                     }
+                  }
+               }
+            }
+         }
+         canvas.requestRenderAll();
+      } else {
+         channelImgs[index].opacity = 0;
+         if (resolution != null) {
+            if (channelImgsTiles[index] !=  null) {
+               for (j = 0; j < channelImgsTiles[index].length; j++) {
+                  if (channelImgsTiles[index][j] != null) {
+                     channelImgsTiles[index][j].opacity = 0;
+                  }
+               }
+            }
+         }
+         canvas.requestRenderAll();
+      }
+   }
+}
+
+function autoAdjustChannel(layer_id, redraw) {
+   if (!retexturing) {
+      index = layerArray.get(layer_id.toString());
+      channelImgs[index].v_minvalue = channelImgs[index].v_minvalue_optimal;
+      channelImgs[index].v_maxvalue = channelImgs[index].v_maxvalue_optimal;
+      var sliderIntensityMin = Math.floor(channelImgs[index].v_minvalue * parseFloat(bitDepth));
+      var sliderIntensityMax = Math.min(bitDepth, Math.floor(parseFloat(bitDepth) / channelImgs[index].v_maxvalue));
+      $( "#sliderChannelIntensity" + layer_id ).slider( "option", "values", [ sliderIntensityMin, sliderIntensityMax ] );
+      $( "#sliderChannelIntensityValueMin" + layer_id ).val( sliderIntensityMin);
+      $( "#sliderChannelIntensityValueMax" + layer_id ).val( sliderIntensityMax);
+      adjustImage(channelImgs[index]);
+      if (resolution != null) {
+         if (channelImgsTiles[index] !=  null) {
+            for (j = 0; j < channelImgsTiles[index].length; j++) {
+               if (channelImgsTiles[index][j] != null) {
+                  channelImgsTiles[index][j].v_minvalue = channelImgs[index].v_minvalue_optimal;
+                  channelImgsTiles[index][j].v_maxvalue = channelImgs[index].v_maxvalue_optimal;
+                  adjustImage(channelImgsTiles[index][j]);
+               }
+            }
+         }
+      }
+      if (redraw) {
+         canvas.renderAll();
+      }
+   }
+}
+
+function calculateZoomIndicator(zoomLevel) {
+   if (pixelToMicron != 0) {
+      var microns = (10 / zoomLevel) * pixelToMicron;
+      var magnitude =  Math.floor(Math.log(microns) / Math.LN10 + 0.000000001);
+      $("#zoom-value").html(Math.pow(10, magnitude + 1) + "µ");
+      $("#zoom-bar").css("width", parseInt(Math.pow(10, magnitude + 2) / microns) + "px");
+   } else {
+      $("#zoom-value").html(Math.floor(zoomLevel * 100) + "%");
+      $("#zoom-bar").css("display", "none");
+   }
+}
+
+//Share annotation
+var sharedURL = '{{ sharedURL }}';
+
+function share_annotation() {
+   $.ajax({url: "{% url 'submit_share_annotation' %}", success: function(data, responseCode, xhr){
+      if (data == "nok") {
+         if (sharedURL != '') {
+            $("#option_share").removeClass("yellow-selected").addClass("red").delay(1000).queue(function(){$("#option_share").removeClass("red").addClass("yellow-selected").dequeue();});
+         } else {
+            $("#option_share").removeClass("component-blue").addClass("red").delay(1000).queue(function(){$("#option_share").removeClass("red").addClass("component-blue").dequeue();});
+         }
+      } else {
+         sharedURL = data.replace("http://", "https://");
+         if (sharedURL != '') {
+            $("#option_share").removeClass("component-blue").addClass("yellow-selected");
+            $("#option_share_url").show();
+            $("#shared-annotation{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").show();
+         } else {
+            $("#option_share").removeClass("yellow-selected").addClass("component-blue");
+            $("#option_share_url").hide();
+            $("#shared-annotation{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").hide();
+         }
+      }
+   }});
+}
+
+function copy_shared_url() {
+   $("#sharedURLPlaceholder").html(sharedURL);
+   var dummy = document.createElement('input');
+   document.body.appendChild(dummy);
+   dummy.value = sharedURL;
+   dummy.select();
+   document.execCommand('copy');
+   document.body.removeChild(dummy);
+}
+
+//Download
+function download_image() {
+  layerPosition = layerArray.get(currLayer);
+  if (layerData[layerPosition][7] !== '') {
+     image_url = getImageURL(layerData[layerPosition][0], layerData[layerPosition][8] == 'E', layerData[layerPosition][7]);
+     image_filename = "memento_image_" + layerData[layerPosition][6];
+     var image_download_a = document.createElement("a");
+     image_download_a.setAttribute("download", image_filename);
+     image_download_a.setAttribute("href", image_url);
+     image_download_a.setAttribute("target", "_blank");
+     document.body.appendChild(image_download_a);
+     image_download_a.click();
+  }
+}
+
+
+//Draw polygon
+$( window ).keydown(function( event ) {
+   if (event.which == 16) {
+      shiftPressed = true;
+   }
+});
+
+$( window ).keyup(function( event ) {
+   if (event.which == 16) {
+      shiftPressed = false;
+   } else if (event.which == 69) {
+      if (!shiftPressed || !isDrawing) {
+         return;
+      }
+      if (!drawLock) {
+         drawLock = true;
+         closeCurrentPolygon();
+         drawLock = false;
+      }
+   } else if (event.which == 81) {
+      if (!shiftPressed || !isDrawing) {
+         return;
+      }
+      if (!drawLock) {
+         drawLock = true;
+         createTargetShape();
+         drawLock = false;
+      }
+   }
+});
+
+var roof = null;
+var roofPoints = [];
+var lines = [];
+var lineCounter = 0;
+var drawingObject = {};
+drawingObject.type = "";
+drawingObject.background = "";
+drawingObject.border = "";
+var lastMouseX = 0;
+var lastMouseY = 0;
+
+var x = 0;
+var y = 0;
+var shiftPressed = false;
+var isDrawing = false;
+var drawLock = false;
+
+function Point(x, y) {
+    this.x = x;
+    this.y = y;
+}
+
+function deactivateDataCanvas(layerIndex) {
+   if (dataCanvasArray.has(layerIndex)) {
+      dataCanvasArray.get(layerIndex).off();
+      fabric.util.removeListener(window,'dblclick');
+      if (layerIndex > 0) {
+         $("#canvas-layer" + dataCanvasArray.get(layerIndex).canvas_id).parent().parent().css('pointer-events', 'none');
+         dataCanvasArray.get(layerIndex).discardActiveObject();
+         dataCanvasArray.get(layerIndex).requestRenderAll();
+      }
+      $("#option_draw_polygon").hide();
+      $("#option_save").hide();
+      $("#colorPicker").hide();
+      $("#colorFill").hide();
+      $("#option_help").hide();
+      $("#option_download").show();
+   }
+}
+
+function activateDataCanvas(layerIndex) {
+   var currCanvas = dataCanvasArray.get(layerIndex);
+   $("#canvas-layer" + currCanvas.canvas_id).parent().parent().css('pointer-events', 'auto');
+
+   currCanvas.on('mouse:wheel', function(opt) {
+      var delta = opt.e.deltaY;
+      var zoom = this.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.05) zoom = 0.05;
+      calculateZoomIndicator(zoom);
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      for (const key of dataCanvasArray.keys()) {
+         dataCanvasArray.get(key).zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      }
+      render_deepest_level();
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+   });
+   currCanvas.on('mouse:down', function(opt) {
+      if (shiftPressed && isDrawing) {
+         if (drawingObject.type == "") {
+            roofPoints = [];
+            lines = [];
+            lineCounter = 0;
+
+            drawingObject.type = "roof";
+         }
+         if (drawingObject.type == "roof") {
+            dataCanvasArray.get(currDataCanvas).selection = false;
+            var pointer = dataCanvasArray.get(currDataCanvas).getPointer(opt.e);
+            x = pointer.x;
+            y = pointer.y;
+            roofPoints.push(new Point(x, y));
+            var points = [x, y, x, y];
+            lines.push(new fabric.Line(points, {
+               strokeWidth: Math.max(1, Math.floor(2 / dataCanvasArray.get(currDataCanvas).getZoom())),
+               selectable: false,
+               stroke: $(".colorInner").css('background-color')
+            }));
+            dataCanvasArray.get(currDataCanvas).add(lines[lineCounter]);
+            lineCounter++;
+            dataCanvasArray.get(currDataCanvas).on('mouse:up', function (options) {
+               dataCanvasArray.get(currDataCanvas).selection = true;
+            });
+         }
+      } else if (!shiftPressed) {
+         var evt = opt.e;
+         this.isDragging = true;
+         this.selection = false;
+         canvas.lastPosX = evt.clientX;
+         canvas.lastPosY = evt.clientY;
+         for (const key of dataCanvasArray.keys()) {
+            dataCanvasArray.get(key).lastPosX = evt.clientX;
+            dataCanvasArray.get(key).lastPosY = evt.clientY;
+         }
+      }
+   });
+   currCanvas.on('mouse:move', function(opt) {
+      var pointer = dataCanvasArray.get(currDataCanvas).getPointer(opt.e);
+      x = pointer.x;
+      y = pointer.y;
+      lastMouseX = x;
+      lastMouseY = y;
+      if (shiftPressed && isDrawing) {
+         if (lines[0] !== null && lines[0] !== undefined && drawingObject.type == "roof") {
+
+            lines[lineCounter - 1].set({
+               x2: x,
+               y2: y
+            });
+            dataCanvasArray.get(currDataCanvas).requestRenderAll();
+         }
+      } else {
+         if (this.isDragging) {
+            var e = opt.e;
+
+            var vpt = canvas.viewportTransform;
+            vpt[4] += e.clientX - canvas.lastPosX;
+            vpt[5] += e.clientY - canvas.lastPosY;
+            canvas.requestRenderAll();
+            canvas.lastPosX = e.clientX;
+            canvas.lastPosY = e.clientY;
+
+            for (const key of dataCanvasArray.keys()) {
+               var vpt = dataCanvasArray.get(key).viewportTransform;
+               vpt[4] += e.clientX - dataCanvasArray.get(key).lastPosX;
+               vpt[5] += e.clientY - dataCanvasArray.get(key).lastPosY;
+               dataCanvasArray.get(key).requestRenderAll();
+               dataCanvasArray.get(key).lastPosX = e.clientX;
+               dataCanvasArray.get(key).lastPosY = e.clientY;
+            }
+         }
+      }
+   });
+   currCanvas.on('mouse:up', function(opt) {
+      canvas.setViewportTransform(canvas.viewportTransform);
+      for (const key of dataCanvasArray.keys()) {
+         dataCanvasArray.get(key).setViewportTransform(dataCanvasArray.get(key).viewportTransform);
+      }
+      this.isDragging = false;
+      this.selection = true;
+   });
+
+   fabric.util.addListener(currCanvas.upperCanvasEl, 'dblclick', function(options){
+      if (!drawLock) {
+         drawLock = true;
+         if (!shiftPressed || !isDrawing) {
+            return;
+         }
+         closeCurrentPolygon();
+         drawLock = false;
+      }
+   });
+
+   $("#option_draw_polygon").show();
+   $("#option_download").hide();
+   $("#option_save").show();
+   refreshTableRoi();
+
+   isDrawing = false;
+}
+
+function selectTableRoi(index) {
+    var currCanvas = dataCanvasArray.get(currDataCanvas);
+    var roiArray = currCanvas.getObjects();
+    if (roiArray.length >= index + 1) {
+        currCanvas.setActiveObject(currCanvas.item(index));
+        currCanvas.requestRenderAll();
+    }
+}
+
+function refreshTableRoi() {
+    var currCanvas = dataCanvasArray.get(currDataCanvas);
+    var roiArray = currCanvas.getObjects();
+    $("#roi-table-content").find("tr").remove();
+    if (roiArray.length > 0) {
+        for (i = 0; i < roiArray.length; i++) {
+            $('#roi-table-content').append('<tr id=\"roi' + i + '\" onclick=\"selectTableRoi(' + i + ')\"><td>' + i + '</td><td><i class=\"material-icons-outlined\" style=\"margin-top:8px;font-size:18px;\">select_all</i></td></tr>');
+        }
+        $("#canvas-roi-table").show();
+    } else {
+        $("#canvas-roi-table").hide();
+    }
+}
+
+function save_layer() {
+   $.ajaxSetup({
+      beforeSend: function(xhr, settings) {
+         xhr.setRequestHeader("X-CSRFToken", Cookies.get('csrftoken'));
+      }
+   });
+
+   $.ajax({
+      url: '{% url 'save_layer_viewer' %}',
+      type: 'post',
+      data: { 'layer_id': dataCanvasArray.get(currDataCanvas).canvas_id, 'data': JSON.stringify(dataCanvasArray.get(currDataCanvas))},
+      success: function( data, textStatus, jQxhr ){
+         if (data == "nok") {
+            $("#option_save").removeClass("component-blue").addClass("red").delay(1000).queue(function(){$("#option_save").removeClass("red").addClass("component-blue").dequeue();});
+         } else {
+            $("#option_save").removeClass("component-blue").addClass("green").delay(1000).queue(function(){$("#option_save").removeClass("green").addClass("component-blue").dequeue();});
+         }
+      }
+   });
+}
+
+function makeRoof(roofPoints, left, top) {
+   var m = $(".colorInner").css('background-color').match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+   var fillTransparency = 0.0;
+   if ($('#transparency_fill').is(':checked')) {
+      fillTransparency = 0.25;
+   }
+   var roof = new fabric.Polyline(roofPoints, {
+      strokeWidth: 2,
+      fill: 'rgba(' + m[1] + ',' + m[2] + ',' + m[3] + ',' + fillTransparency + ')',
+      stroke: $(".colorInner").css('background-color')
+   });
+   roof.set({
+      left: left,
+      top: top,
+   });
+
+   return roof;
+}
+
+function findTopPaddingForRoof(roofPoints) {
+    var result = 999999;
+    for (var f = 0; f < lineCounter; f++) {
+        if (roofPoints[f].y < result) {
+            result = roofPoints[f].y;
+        }
+    }
+    return Math.abs(result);
+}
+
+function findLeftPaddingForRoof(roofPoints) {
+    var result = 999999;
+    for (var i = 0; i < lineCounter; i++) {
+        if (roofPoints[i].x < result) {
+            result = roofPoints[i].x;
+        }
+    }
+    return Math.abs(result);
+}
+
+function activateDrawingCanvas() {
+    roof = null;
+    roofPoints = [];
+    lines = [];
+    lineCounter = 0;
+    drawingObject = {};
+    drawingObject.type = "roof";
+    isDrawing = true;
+}
+
+function deactivateDrawingCanvas() {
+   drawingObject.type = "";
+   isDrawing = false;
+}
+
+function closeCurrentPolygon() {
+   drawingObject.type = "";
+   lines.forEach(function(value, index, ar){
+      dataCanvasArray.get(currDataCanvas).remove(value);
+   });
+   var left = findLeftPaddingForRoof(roofPoints);
+   var top = findTopPaddingForRoof(roofPoints);
+   roofPoints.push(new Point(roofPoints[0].x,roofPoints[0].y))
+   roof = makeRoof(roofPoints, left, top);
+   roof.setControlsVisibility({
+      tl: false,
+      tr: false,
+      bl: false,
+      br: false,
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      mtr: false
+   });
+   dataCanvasArray.get(currDataCanvas).add(roof);
+   dataCanvasArray.get(currDataCanvas).requestRenderAll();
+   refreshTableRoi();
+}
+
+function createTargetShape() {
+   drawingObject.type = "";
+   lines.forEach(function(value, index, ar){
+      dataCanvasArray.get(currDataCanvas).remove(value);
+   });
+   roofPoints = [new Point(lastMouseX - 4, lastMouseY),
+                 new Point(lastMouseX, lastMouseY - 4),
+                 new Point(lastMouseX + 4, lastMouseY),
+                 new Point(lastMouseX, lastMouseY + 4),
+                 new Point(lastMouseX -4, lastMouseY)];
+   var left = lastMouseX - 4;
+   var top = lastMouseY - 4;
+   roof = makeRoof(roofPoints, left, top);
+   roof.setControlsVisibility({
+      tl: false,
+      tr: false,
+      bl: false,
+      br: false,
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+      mtr: false
+   });
+   dataCanvasArray.get(currDataCanvas).add(roof);
+   dataCanvasArray.get(currDataCanvas).requestRenderAll();
+   refreshTableRoi();
+}
+
+function toggle_drawPolygon(option = '') {
+   if (option == '' && $("#option_draw_polygon").hasClass("component-blue")) {
+      $("#option_draw_polygon").removeClass("component-blue").addClass("yellow-selected");
+      activateDrawingCanvas();
+      $("#colorPicker").show();
+      $("#colorFill").show();
+      $("#option_help").show();
+      dataCanvasArray.get(currDataCanvas).forEachObject(function(obj){
+         obj.set('selectable', false);
+      });
+   } else {
+      $("#colorPicker").hide();
+      $("#colorFill").hide();
+      $("#option_help").hide();
+      $("#option_draw_polygon").removeClass("yellow-selected").addClass("component-blue");
+      deactivateDrawingCanvas();
+      dataCanvasArray.get(currDataCanvas).forEachObject(function(obj){
+         obj.set('selectable', true);
+      });
+   }
+}
+
+//Delete fabric control
+var deleteIcon = "data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg version='1.1' id='Ebene_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' width='595.275px' height='595.275px' viewBox='200 215 230 470' xml:space='preserve'%3E%3Ccircle style='fill:%23F44336;' cx='299.76' cy='439.067' r='218.516'/%3E%3Cg%3E%3Crect x='267.162' y='307.978' transform='matrix(0.7071 -0.7071 0.7071 0.7071 -222.6202 340.6915)' style='fill:white;' width='65.545' height='262.18'/%3E%3Crect x='266.988' y='308.153' transform='matrix(0.7071 0.7071 -0.7071 0.7071 398.3889 -83.3116)' style='fill:white;' width='65.544' height='262.179'/%3E%3C/g%3E%3C/svg%3E";
+var imgDelete = document.createElement('img');
+imgDelete.src = deleteIcon;
+
+fabric.Object.prototype.controls.deleteControl = new fabric.Control({
+   x: 0.5,
+   y: -0.5,
+   offsetX: -16,
+   offsetY: 16,
+   cursorStyle: 'pointer',
+   mouseUpHandler: deleteObject,
+   render: renderIcon,
+   cornerSize: 24
+});
+
+function deleteObject(eventData, transform) {
+   var target = transform.target;
+   var canvas = target.canvas;
+   canvas.remove(target);
+   canvas.requestRenderAll();
+   refreshTableRoi();
+}
+
+function renderIcon(ctx, left, top, styleOverride, fabricObject) {
+   var size = this.cornerSize;
+   ctx.save();
+   ctx.translate(left, top);
+   ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
+   ctx.drawImage(imgDelete, -size/2, -size/2, size, size);
+   ctx.restore();
+}
+
+</script>
+
+<div id="canvas-menu-imagelist">
+   <i id="imagelistExpand" class="material-icons-outlined expand-icon" style="display:none">keyboard_arrow_right</i>
+</div>
+{% if request.session.has_labels %}
+<div id="canvas-menu-labellist">
+   <i id="labellistExpand" class="material-icons-outlined expand-icon">keyboard_arrow_down</i>
+</div>
+{% endif %}
+{% if has_layers %}
+<div id="canvas-menu-layerlist">
+   <i id="layerlistExpand" class="material-icons-outlined expand-icon">keyboard_arrow_left</i>
+</div>
+{% endif %}
+{% if has_comments %}
+<div id="canvas-menu-commentlist">
+   <i id="commentlistExpand" class="material-icons-outlined expand-icon">keyboard_arrow_up</i>
+</div>
+{% endif %}
+<div id="canvas-menu-actions">
+   <a id="option_draw_polygon" title="Draw" class="component-blue" href="#" onclick="toggle_drawPolygon();" style="display:none"><p class="field-value"><i class="material-icons-outlined">draw</i></p></a>
+   <a id="option_save" title="Save layer" class="component-blue" href="#" onclick="save_layer();" style="display:none"><p class="field-value"><i class="material-icons-outlined">save</i></p></a>
+   <a href="#" title="Toggle dark mode" onclick="toggle_darkmode(-1);"><p class="field-value"><i class="material-icons-outlined">dark_mode</i></p></a>
+   <a id="option_download" title="Download image" href="#" onclick="download_image()"><p class="field-value"><i class="material-icons-outlined">download</i></p></a>
+   {% if not request.session.selected_share %}
+   <a id="option_share" title="Toggle share image" class="component-blue {% if sharedURL != '' %}yellow-selected{% endif %}" href="#" onclick="share_annotation();"><p class="field-value"><i class="material-icons-outlined">share</i></p></a>
+   <a id="option_share_url" title="Shared URL" href="#" data-toggle="modal" data-target="#urlModal" onclick="copy_shared_url();" {% if sharedURL == '' %}style="display:none"{% endif %}><p class="field-value"><i class="material-icons-outlined">link</i></p></a>
+   {% endif %}
+</div>
+<div id="canvas-menu-info">
+   <span>Zoom: </span>
+   <div style="margin-left:5px;">
+      <p id="zoom-value" style="text-align:left;">?</p>
+      <hr id="zoom-bar" class="separator"/>
+   </div>
+   <span id="retexturing-indicator" style="color:#ff8800; margin-left: 10px; text-align:right;">Retexturing...</span>
+</div>
+<div id="canvas-roi-table" style="display:none;">
+   <table class="roi-table">
+      <thead>
+         <tr>
+            <th>Index</th>
+            <th>&nbsp;</th>
+         </tr>
+      </thead>
+      <tbody id="roi-table-content">
+      </tbody>
+   </table>
+</div>
+<div id="canvas-menu-subactions">
+   <div id="colorPicker" style="display:none">
+      <a class="color"><div class="colorInner" style="background-color:rgb(249, 187, 1)"></div></a>
+      <div class="track"></div>
+      <ul class="dropdown"><li></li></ul>
+      <input type="hidden" class="colorInput"/>
+   </div>
+   <div id="colorFill" class="form-check" style="display:none">
+      <input class="form-check-input" type="checkbox" value="" id="transparency_fill" checked>
+      <label class="form-check-label" for="transparency_fill">
+         Fill
+      </label>
+   </div>
+   <a id="option_help" class="component-blue" href="#" data-toggle="tooltip" data-placement="bottom" data-html="true" title="" style="display:none"><p class="field-value"><i class="material-icons-outlined">help_outlined</i></p></a>
+</div>
+<div id="canvas-loading">
+   <div class="loader">
+      <p class="field-title">Loading image<span class="loader__dot">.</span><span class="loader__dot">.</span><span class="loader__dot">.</span></p>
+   </div>
+</div>
+<div class="modal fade" id="urlModal" tabindex="-1" role="dialog" aria-labelledby="urlModalLabel" aria-hidden="true">
+   <div class="modal-dialog" role="document">
+      <div class="modal-content">
+         <div class="modal-header">
+            <h5 class="modal-title" id="urlModalLabel"><span class="field-title">URL copied!</span></h5>
+               <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+               </button>
+         </div>
+         <div class="modal-body">
+            <p class="field-title">Send this URL to the person/s you want to grant anonymous access to this annotation</p><br>
+            <p id="sharedURLPlaceholder" class="field-value"></p>
+         </div>
+         <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+         </div>
+      </div>
+   </div>
+</div>
+{% for layer in layers reversed %}
+   {% if layer.data != '' %}
+   <div class="canvas-wrapper" style="pointer-events:none"><canvas id="canvas-layer{{ layer.id }}" style="position:absolute;top:0;left:0;" datajson="{{ layer.data }}"></canvas></div>
+   {% endif %}
+{% endfor %}
+<div class="canvas-wrapper">
+   <canvas id="canvas-images"></canvas>
+</div>
+
+<script>
+$('#imagelistExpand').on('click', function () {
+    $('#viewer-content-imagelist').toggle("slide", { direction: "left", complete: function() { fitMenus(); } });
+    $('#imagelistExpand').toggle();
+});
+$('#labellistExpand').on('click', function () {
+    $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+    $('#labellistExpand').toggle();
+});
+$('#layerlistExpand').on('click', function () {
+    $('#viewer-content-layerlist').toggle("slide", { direction: "right", complete: function() { fitMenus(); } });
+    $('#layerlistExpand').toggle();
+});
+$('#commentlistExpand').on('click', function () {
+    $('#viewer-content-commentlist').toggle("slide", { direction: "down", complete: function() { fitMenus(); } });
+    $('#commentlistExpand').toggle();
+});
+
+if (fabric.isWebglSupported()) {
+   fabric.textureSize = fabric.maxTextureSize;
+}
+
+var canvas = new fabric.Canvas('canvas-images');
+canvas.setDimensions({
+   width: $('#canvas-div').width(),
+   height: $('#canvas-div').height(),
+   imageSmoothingEnabled: false
+});
+canvas.isDragging = false;
+canvas.selection = false;
+var channelImgs = [];
+var channelImgsTiles = [];
+var channelImgsLevel = [];
+var numImages = 0;
+var sliderTimeout = 0;
+var lastCanvasWidth = canvas.width;
+var lastCanvasHeight = canvas.height;
+
+var retexturing = false;
+var currentTile = "";
+var imgLevelRetextured = [];
+var tilesToRetexture = [];
+var pyramidInfo = [[2,0], [4,4], [8,20], [16,84], [32,340]];
+
+var bitDepth = 255;
+{% if bitDepth %}bitDepth = Math.floor(Math.pow(2, parseInt("{{ bitDepth }}")));{% endif %}
+var pixelToMicron = 0;
+{% if pixelToMicron %}pixelToMicron = parseFloat("{{ pixelToMicron }}");{% endif %}
+var sliderInterval = -1;
+{% if sliderInterval %}sliderInterval = parseInt("{{ sliderInterval }}");{% endif %}
+document.getElementById("retexturing-indicator").style.display = "none";
+var resolution = null;
+var resolution_ratio = 0;
+var maxzdim = 1;
+{% if image_resolution %}
+resolution = "{{ image_resolution }}".split("x");
+resolution_ratio = Math.max(resolution[0] / 1024.0, resolution[1] / 1024.0);
+maxzdim = 1;
+for (let i = 7; i >= 1; i--) {
+   if (2 ** i <= resolution_ratio) {
+      maxzdim = 2 ** i;
+      break;
+   }
+}
+{% endif %}
+var minTileResolution = 1024;
+{% if minTileResolution %}minTileResolution = parseInt("{{ minTileResolution }}");{% endif %}
+
+
+var layerArray = new Map();
+var layerData = [];
+var currLayer = 0;
+var defaultChannels = [];
+var loadedChannels = 0;
+{% for layer in layers %}
+   {% if layer.image_id != 0 %}
+   var pairs = "{{ layer.settings }}".split(",");
+   var map = new Map();
+   pairs.forEach(pair => {
+      const [key, value] = pair.split(':').map(item => item.trim());
+      map.set(key, value);
+   });
+   channelData = ["{{ layer.image_uri }}", "{{ layer.name }}", "", "no", "", "visible", "{{ layer.id }}", "{{ layer.image_id }}", "{{ layer.image_type }}", "{{ layer.data }}"];
+   if (map.has('clip')) channelData[2] = map.get('clip');
+   if (map.has('transparency')) channelData[3] = map.get('transparency');
+   if (map.has('color')) channelData[4] = map.get('color');
+   if (map.has('default')) channelData[5] = map.get('default');
+   layerData.push(channelData);
+   defaultChannels.push(channelData);
+   if (currLayer == 0) {
+      currLayer = channelData[6];
+   }
+   {% endif %}
+{% endfor %}
+
+for (let i = 0; i < layerData.length; i++) {
+   canvas.add(getPointReserver());
+}
+
+{% if image_type == "T" %}
+var pyramidIndex = Math.log2(maxzdim);
+var num_tiles_per_channel = pyramidInfo[pyramidIndex][0];
+for (let i = 0; i < layerData.length; i++) {
+   for (let j = 0; j < num_tiles_per_channel; j++) {
+      canvas.add(getPointReserver());
+   }
+}
+{% endif %}
+
+for (let i = 0; i < defaultChannels.length; i++) {
+   channelImgs.push(numImages);
+   layerArray.set(defaultChannels[i][6], numImages);
+   {% if image_type == "T" %}
+   channelImgsTiles.push(Array(num_tiles_per_channel));
+   channelImgsLevel.push(maxzdim);
+   {% endif %}
+   loadChannelImage(numImages, defaultChannels[i][6], defaultChannels[i][7], defaultChannels[i][0], getImageURL(defaultChannels[i][0], defaultChannels[i][8] == 'E', defaultChannels[i][7]), defaultChannels[i][1], defaultChannels[i][2], defaultChannels[i][3], defaultChannels[i][4], defaultChannels[i][5]);
+   numImages = numImages + 1;
+}
+activateMainCanvas();
+$("#canvas-loading").hide();
+{% if image_type == "T" %}
+retexture_images();
+scheduleRetexture();
+{% endif %}
+
+
+var dataCanvasArray = new Map();
+var currDataCanvas = -1;
+$('[id^="canvas-layer"]').each(function(i, obj) {
+   var layerId = parseInt(obj.id.replace("canvas-layer", ""));
+   $(obj).width($('#canvas-div').width());
+   $(obj).height($('#canvas-div').height());
+   obj.style.zIndex = '' + ($('[id^="canvas-layer"]').length - i);
+   var dataLayer = new fabric.Canvas(obj);
+   dataLayer.set('canvas_id', layerId);
+   dataLayer.setDimensions({
+      width: $('#canvas-div').width(),
+      height: $('#canvas-div').height()
+   });
+   dataCanvasArray.set(layerId, dataLayer);
+   dataLayer.zoomToPoint({ x: $('#canvas-div').width() / 2, y: $('#canvas-div').height() / 2 }, canvas.getZoom());
+   var basevpt = canvas.viewportTransform;
+   var vpt = dataLayer.viewportTransform;
+   vpt[4] = basevpt[4];
+   vpt[5] = basevpt[5];
+   dataLayer.setViewportTransform(dataLayer.viewportTransform);
+   if (obj.getAttribute("datajson") !== 'none') {
+      (function(dataLayer, jsonObjects) {
+         fabric.util.enlivenObjects(jsonObjects, function(enlivenedObjects) {
+            enlivenedObjects.forEach(function(fabobj) {
+               fabobj.setControlsVisibility({
+                  tl: false,
+                  tr: false,
+                  bl: false,
+                  br: false,
+                  mt: false,
+                  mb: false,
+                  ml: false,
+                  mr: false,
+                  mtr: false
+               });
+               dataLayer.add(fabobj);
+            });
+         });
+      })(dataLayer, JSON.parse(obj.getAttribute("datajson"))["objects"]);
+      obj.setAttribute("datajson", "");
+   }
+   dataLayer.requestRenderAll();
+});
+
+
+var $colorPicker = $('#colorPicker');
+$colorPicker.tinycolorpicker();
+$('#option_help').attr("title", "<b>Drawing:</b> keep the Shift key pressed while clicking in the canvas to draw a polygon. Double-click or press Shift + E to close the shape and finish. Alternatively, you can simply press Shift + Q to draw a target diamond over a point of interest.");
+$('#option_help').tooltip();
+</script>

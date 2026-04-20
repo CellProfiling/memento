@@ -1,0 +1,52 @@
+<script>
+function fitForceRow(numRow) {
+   if (numRow * 130 > $( window ).width() - 250) {
+      var newAspectRatio = Math.floor(($( window ).width() - 250) / numRow);
+      $('.image-grid-row-elem').each(function(i, obj) {
+         $(obj).width(newAspectRatio);
+         $(obj).height(newAspectRatio + 24);
+         $(obj).children().each(function(i, objc) {
+             $(objc).css("max-width", newAspectRatio);
+             if (i == 0) {
+                $(objc).css("max-height", newAspectRatio);
+             }
+         });
+      });
+   } 
+}
+</script>
+
+<div id="canvas-menu-labellist" style="display:none">
+   <i id="labellistExpand" class="material-icons-outlined expand-icon">keyboard_arrow_down</i>
+</div>
+
+<div id="image-grid" class="image-grid">
+   <div class="image-grid-row">
+   {% for annotation in annotations %}
+   {% if forcerow and forloop.counter0 != 0 and forloop.counter0|divisibleby:forcerow %}
+   </div>
+   <div class="image-grid-row">
+   {% endif %}
+      <div class="image-grid-row-elem" onclick="loadAnnotation({{annotation.id}}, {{request.session.selected_project_category_id}})" style="width:128px;height:{% if names and names == 'hidden' %}128px{% else %}152px{% endif %}">
+         <img src="media/{{ annotation.image_id }}/thumb">
+         <p{% if names and names == 'hidden' %} style="display:none"{% endif %}>{{ annotation.name }}</p>
+      </div>
+   {% endfor %}
+   </div>
+</div>
+<script>
+$('#labellistExpand').on('click', function () {
+    $('#viewer-content-labellist').toggle("slide", { direction: "up", complete: function() { fitMenus(); } });
+    $('#labellistExpand').toggle();
+});
+
+{% if forcerow %}
+fitForceRow({{ forcerow }});
+{% endif %}
+{% if darkmode %}
+darkmode = {{ darkmode }};
+{% endif %}
+
+$("#catSubmenu" + currCategory).html("{% for annotation in annotations %}<li id=\"listAnnotation{{ annotation.id }}\"><a href=\"#\" onclick=\"loadAnnotation({{ annotation.id }}, {{ request.session.selected_project_category_id }})\">{{ annotation.name }}{% if request.session.has_labels and annotation.status == 'N' %}<i id=\"mark-annotation{{ request.session.selected_project_category_id }}-{{ annotation.id }}\" class=\"material-icons-outlined mark-annotation\">fact_check</i>{% endif %}<i id=\"mark-comments{{ request.session.selected_project_category_id }}-{{ annotation.id }}\" class=\"material-icons-outlined mark-annotation\" {% if not annotation.has_comments %}style=\"display:none\"{% endif %}>notes</i><i id=\"shared-annotation{{ request.session.selected_project_category_id }}-{{ annotation.id }}\" class=\"material-icons-outlined mark-annotation\" {% if annotation.shared == '' %}style=\"display:none\"{% endif %}>share</i></a></li>{% endfor %}");
+</script>
+

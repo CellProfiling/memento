@@ -1,0 +1,488 @@
+<div class="layer-grid">
+   <div id="layer-begin-block" style="text-align:left">
+      <i id="layerlistCollapse" class="material-icons-outlined expand-icon white">keyboard_arrow_right</i>
+   </div>
+
+   {% for layer in layers reversed %}
+   {% if not layer.active and layer.data != "" %}
+   <div id="layerdata-block{{ layer.id }}" class="layer-elem" image="0" parent_id="0"{% if forloop.last and group_layers %} style="margin-bottom:15px;"{% endif %}>
+      <button id="layer-visible{{ layer.id }}" type="button" class="btn btn-primary layer-btn" style="margin:5px" onclick="toggleLayer({{ layer.id }})"><i class="material-icons-outlined">visibility</i></button>
+      <button type="button" class="btn btn-danger layer-btn" style="margin:5px" {% if layer.is_owner %}onclick="deleteLayer({{ layer.id }})"{% else %}disabled{% endif %}><i class="material-icons-outlined">layers_clear</i></button>
+      <a href="#" onclick="selectLayer({{ layer.id }})"><p class="field-value" style="margin:0;margin-top:6px;">{{ layer.name }}</p></a>
+      <i id="layer-comments{{ layer.id }}" class="material-icons-outlined mark-annotation" {% if layer.num_comments == 0 %}has_comments="0" style="display:none"{% else %}has_comments="1"{% endif %}>notes</i>
+   </div>
+   {% endif %}
+   {% endfor %}
+
+   {% if group_layers %}
+   <div id="layergroup-block" class="layer-elem" style="width:200px;justify-content:center;margin-left:15px;">
+      <button id="previous_layergroup" type="button" class="btn btn-primary layer-btn" style="margin:5px" onclick="rotateGroupLayer(-1);"><i class="material-icons-outlined">keyboard_arrow_left</i></button>
+      <p id="layergroup_name" class="field-value" style="margin:0;margin-top:6px;">...</p>
+      <button id="next_layergroup" type="button" class="btn btn-primary layer-btn" style="margin:5px" onclick="rotateGroupLayer(1);"><i class="material-icons-outlined">keyboard_arrow_right</i></button>
+   </div>
+   <div id="layergroup-slider" class="layer-slider" style="width:200px;margin-bottom:15px;margin-left:15px;">
+   </div>
+   {% endif %}
+
+   {% for layer in layers reversed %}
+   {% if layer.active %}
+   <div id="layer-block{{ layer.id }}" class="layer-elem{% if forloop.last %} imagelist-active{% endif %}" image="1" parent_id="{{ layer.parent_id }}" layer_name="{{ layer.name }}" group_name="{{ layer.group_name }}">
+      <button id="layer-visible{{ layer.id }}" type="button" class="btn btn-primary layer-btn" style="margin:5px" onclick="toggleLayer({{ layer.id }})"><i class="material-icons-outlined">visibility</i></button>
+      <a href="#" onclick="selectLayer({{ layer.id }})"><p class="field-value" style="margin:0;margin-top:6px;">{{ layer.name }}</p></a>
+      <i id="layer-controls-toggle{{ layer.id }}" class="material-icons-outlined layercontrol-icon keyboard_arrow_right" style="margin-top:5px;" onclick="toggleLayerControl({{ layer.id }});">{% if expandcontrols %}keyboard_arrow_down{% else %}keyboard_arrow_right{% endif %}</i>
+      <i id="layer-comments{{ layer.id }}" class="material-icons-outlined mark-annotation" {% if layer.num_comments == 0 %}has_comments="0" style="display:none"{% else %}has_comments="1" style="margin-top:5px;"{% endif %}>notes</i>
+   </div>
+   <div id="layer-controls{{ layer.id }}" class="layer-control" style="margin-left:5px;margin-bottom:10px;{% if expandcontrols %}display:flex;{% else %}display:none;{% endif %}">
+     <div class="layer-control-elem">
+       <button id="minmax{{ layer.id }}" type="button" class="btn btn-primary layer-btn" onclick="autoAdjustChannelGroup({{ layer.id }}, true);"><i class="material-icons-outlined" style="font-size:16px;">exposure</i></button>
+       <div id="sliderChannelIntensity{{ layer.id }}" class="channel-slider" bitDepth="{{ layer.bitDepth }}" style="margin-left:15px;"></div>
+       <input type="text" id="sliderChannelIntensityValueMin{{ layer.id }}" class="channel-input" value="0" onchange="checkRangeValue({{ layer.id }},'intensity-min');">
+       <span class="channel-input-dash">-</span>
+       <input type="text" id="sliderChannelIntensityValueMax{{ layer.id }}" class="channel-input" value="{{ layer.bitDepth }}" onchange="checkRangeValue({{ layer.id }},'intensity-max');">
+     </div>
+     <div class="layer-control-elem">
+       <div id="sliderChannelTransparency{{ layer.id }}" class="channel-slider"></div>
+       <input type="text" id="sliderChannelTransparencyValue{{ layer.id }}" class="channel-input" value="100" onchange="checkRangeValue({{ layer.id }},'transparency');">
+       <span class="channel-input-dash">%</span>
+     </div>
+   </div>
+   {% endif %}
+   {% endfor %}
+
+   <div id="layer-end-block" class="layer-elem" style="width:100%">
+      <hr class="hr-memento">
+   </div>
+   <div>
+      <p class="field-title">Add a new layer</p>
+   </div>
+   <div class="layer-elem">
+      <input type="text" class="form-control" id="newlayer" value="...">
+      <button id="add_layer" type="button" class="btn btn-primary" style="margin-left:10px" onclick="addLayer()"><i class="material-icons-outlined">library_add</i></button>
+   </div>
+   <div class="layer-elem">
+      <hr class="hr-memento-lesser">
+   </div>
+</div>
+<script>
+   var latestCanvasLayerIdAdded = 0;
+   var group_layers = {{ group_layers|safe }};
+   var group_names = {{ group_names|safe }};
+
+   $('#layerlistCollapse').on('click', function () {
+      $('#viewer-content-layerlist').toggle("slide", { direction: "right", complete: function() { fitMenus(); } });
+      $('#layerlistExpand').toggle({duration: 1000});
+   });
+
+   function selectLayer(layer_id) {
+      if ($("#layer-visible" + layer_id).hasClass("btn-primary")) {
+         $('[id^="layer-block"],[id^="layerdata-block"]').removeClass("imagelist-active");
+         if ($("#layer-block" + layer_id).length) {
+            if ($("#layerdata-block" + currLayer).length) {
+               deactivateDataCanvas(currDataCanvas);
+               currDataCanvas = -1;
+               activateMainCanvas();
+            }
+            $("#layer-block" + layer_id).addClass("imagelist-active");
+         } else {
+            if ($("#layer-block" + currLayer).length) {
+               deactivateMainCanvas();
+            } else {
+               deactivateDataCanvas(currDataCanvas);
+            }
+            $("#layerdata-block" + layer_id).addClass("imagelist-active");
+            currDataCanvas = parseInt(layer_id);
+            activateDataCanvas(parseInt(layer_id));
+            toggle_drawPolygon('deactivate');
+         }
+         loadCommentEditor({{ request.session.selected_project_annotation_id }}, layer_id);
+         currLayer = layer_id.toString();
+      }
+   }
+
+   function toggleLayer(layer_id, force_hide = false, force_show = false) {
+      if ($("#layer-visible" + layer_id).hasClass("btn-primary") || force_hide) {
+         if (!force_hide && !force_show) {
+             $("#layer-visible" + layer_id).attr("active", "0");
+         }
+         $("#layer-visible" + layer_id).removeClass("btn-primary").addClass("btn-secondary");
+         $("#layer-visible" + layer_id).children().first().html("visibility_off");
+         if ($("#layer-block" + layer_id).length) {
+            toggleChannel(layer_id, false);
+         } else {
+            $("#canvas-layer" + layer_id).parent().parent().hide();
+         }
+
+         {% if group_layers and  groupcontrols %}
+         var base_layer_name = $("#layer-block" + layer_id).attr("layer_name").replace($("#layer-block" + layer_id).attr("group_name"), "");
+         $('[id^="layer-block"]').each(function(i, obj) {
+             var curr_layer_id = obj.id.substring(11);
+             if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                 if (!force_hide && !force_show) {
+                     $("#layer-visible" + curr_layer_id).attr("active", "0");
+                     $("#layer-visible" + curr_layer_id).removeClass("btn-primary").addClass("btn-secondary");
+                     $("#layer-visible" + curr_layer_id).children().first().html("visibility_off");
+                 }
+             }
+         });
+         {% endif %}
+
+      } else {
+         if (!force_hide && !force_show) {
+             $("#layer-visible" + layer_id).attr("active", "1");
+         }
+         $("#layer-visible" + layer_id).removeClass("btn-secondary").addClass("btn-primary");
+         $("#layer-visible" + layer_id).children().first().html("visibility");
+         if ($("#layer-block" + layer_id).length) {
+            toggleChannel(layer_id, true);
+         } else {
+            $("#canvas-layer" + layer_id).parent().parent().show();
+         }
+
+         {% if group_layers and  groupcontrols %}
+         var base_layer_name = $("#layer-block" + layer_id).attr("layer_name").replace($("#layer-block" + layer_id).attr("group_name"), "");
+         $('[id^="layer-block"]').each(function(i, obj) {
+             var curr_layer_id = obj.id.substring(11);
+             if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                 if (!force_hide && !force_show) {
+                     $("#layer-visible" + curr_layer_id).attr("active", "1");
+                     $("#layer-visible" + curr_layer_id).removeClass("btn-secondary").addClass("btn-primary");
+                     $("#layer-visible" + curr_layer_id).children().first().html("visibility");
+                 }
+             }
+         });
+         {% endif %}
+      }
+   }
+
+   function toggleLayerControl(layer_id, force_hide = false, force_show = false) {
+      if (!force_show && ($("#layer-controls" + layer_id).is(":visible") || force_hide)) {
+         if (!force_hide && !force_show) {
+             $("#layer-controls" + layer_id).attr("active", "0");
+         }
+         $("#layer-controls" + layer_id).hide();
+         $("#layer-controls-toggle" + layer_id).html("keyboard_arrow_right");
+
+         {% if group_layers and  groupcontrols %}
+         var base_layer_name = $("#layer-block" + layer_id).attr("layer_name").replace($("#layer-block" + layer_id).attr("group_name"), "");
+         $('[id^="layer-block"]').each(function(i, obj) {
+             var curr_layer_id = obj.id.substring(11);
+             if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                 if (!force_hide && !force_show) {
+                     $("#layer-controls" + curr_layer_id).attr("active", "0");
+                 }
+             }
+         });
+         {% endif %}
+
+      } else {
+         if (!force_hide && !force_show) {
+             $("#layer-controls" + layer_id).attr("active", "1");
+         }
+         $("#layer-controls" + layer_id).show();
+         $("#layer-controls-toggle" + layer_id).html("keyboard_arrow_down");
+
+         {% if group_layers and  groupcontrols %}
+         var base_layer_name = $("#layer-block" + layer_id).attr("layer_name").replace($("#layer-block" + layer_id).attr("group_name"), "");
+         $('[id^="layer-block"]').each(function(i, obj) {
+             var curr_layer_id = obj.id.substring(11);
+             if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                 if (!force_hide && !force_show) {
+                     $("#layer-controls" + curr_layer_id).attr("active", "1");
+                 }
+             }
+         });
+         {% endif %}
+
+      }
+   }
+
+   function addLayer() {
+      $.ajax({url: "{% url 'new_layer_viewer' %}?name=" + $('#newlayer').val(), success: function(result){
+         if (result == "nok") {
+            $("#add_layer").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+            $("#add_layer").addClass("btn-danger").delay(1000).queue(function(){$("#add_layer").removeClass("btn-danger").addClass("btn-primary").dequeue();});
+         } else {
+            $("#add_layer").removeClass("btn-primary").removeClass("btn-danger").removeClass("btn-success");
+            $("#add_layer").addClass("btn-success").delay(1000).queue(function(){$("#add_layer").removeClass("btn-success").addClass("btn-primary").dequeue();});
+            $("<div id=\"layerdata-block" +
+               result +
+               "\" class=\"layer-elem\" image=\"0\" parent_id=\"0\"" + (($("[id^='layerdata-block']").length == 0 && $("[id^='layergroup-block']").length > 0) ? "style=\"margin-bottom:15px;\"" : "") +
+               "><button id=\"layer-visible" +
+               result + "\" type=\"button\" class=\"btn btn-primary layer-btn\" style=\"margin:5px\" onclick=\"toggleLayer(" +
+               result +
+               ")\"><i class=\"material-icons-outlined\">visibility</i></button><button type=\"button\" class=\"btn btn-danger layer-btn\" style=\"margin:5px\" onclick=\"deleteLayer(" +
+               result +
+               ")\"><i class=\"material-icons-outlined\">layers_clear</i></button><a href=\"#\" onclick=\"selectLayer(" +
+               result +
+               ")\"><p class=\"field-value\" style=\"margin:0\">" +
+               $("#newlayer").val() +
+               "</p></a><i id=\"layer-comments" +
+               result +
+               "\" class=\"material-icons-outlined mark-annotation\" style=\"display:none\">notes</i></div>").insertAfter( $( "#layer-begin-block" ) );
+            $("#newlayer").val("...");
+
+            var newCanvasLayerDiv = "<div class=\"canvas-wrapper\" style=\"pointer-events:none\"><canvas id=\"canvas-layer" + result + "\" style=\"position:absolute;top:0;left:0;z-index: " + (1 + $('[id^="canvas-layer"]').length) + "\"></canvas></div>";
+            if ($('[id^="canvas-layer"]').length) {
+               $(newCanvasLayerDiv).insertAfter($('[id^="canvas-layer"]').last().parent().parent());
+            } else {
+               $(newCanvasLayerDiv).insertBefore($("#canvas-images").parent().parent());
+            }
+            $("#canvas-layer" + result).width($('#canvas-div').width());
+            $("#canvas-layer" + result).height($('#canvas-div').height());
+            latestCanvasLayerIdAdded = result;
+            setTimeout(function(){
+               var new_datacanvas = new fabric.Canvas(document.getElementById("canvas-layer" + latestCanvasLayerIdAdded));
+               new_datacanvas.setDimensions({
+                  width: $('#canvas-div').width(),
+                  height: $('#canvas-div').height()
+               });
+               new_datacanvas.zoomToPoint({ x: $('#canvas-div').width() / 2, y: $('#canvas-div').height() / 2 }, canvas.getZoom());
+               var basevpt = canvas.viewportTransform;
+               var vpt = new_datacanvas.viewportTransform;
+               vpt[4] = basevpt[4];
+               vpt[5] = basevpt[5];
+               new_datacanvas.setViewportTransform(new_datacanvas.viewportTransform);
+               new_datacanvas.requestRenderAll();
+               new_datacanvas.set('canvas_id', parseInt(latestCanvasLayerIdAdded));
+               dataCanvasArray.set(parseInt(latestCanvasLayerIdAdded), new_datacanvas);
+            }, 500);
+         }
+      }});
+   }
+
+   function deleteLayer(layer_id) {
+      if (confirm('This will permanently remove all layer data. Are you sure you want to continue?')) {
+         $.ajax({url: "{% url 'delete_layer_viewer' %}?layer_id=" + layer_id, success: function(result){
+            if (result == "ok") {
+               var wasCurrentLayer = (currLayer == layer_id.toString());
+               $("#layerdata-block" + layer_id).remove();
+               dataCanvasArray.delete(layer_id);
+               $('#canvas-layer' + layer_id).parent().remove();
+               if (wasCurrentLayer) {
+                  var nextElem = $('[id^="layerdata-block"]').first();
+                  if (!nextElem.length) {
+                     nextElem = $('[id^="layer-block"]').first();
+                  }
+                  if (nextElem.length) {
+                     selectLayer(parseInt(nextElem.attr("id").replace(/^(layerdata-block|layer-block)/, "")));
+                  } else {
+                     currLayer = 0;
+                     currDataCanvas = -1;
+                  }
+               }
+               $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").hide();
+               $('[id^="layer-comments"]').each(function(i, obj) {
+                  if ($(obj).is(":visible")) {
+                     $("#mark-comments{{ request.session.selected_project_category_id }}-{{ request.session.selected_project_annotation_id }}").show();
+                  }
+               });
+            }
+         }});
+      }
+   }
+
+   function autoAdjustChannelGroup(layer_id, redraw) {
+        autoAdjustChannel(layer_id, redraw);
+        {% if group_layers and  groupcontrols %}
+        var base_layer_name = $("#layer-block" + layer_id).attr("layer_name").replace($("#layer-block" + layer_id).attr("group_name"), "");
+        var intensityMin = $( "#sliderChannelIntensityValueMin" + layer_id ).val();
+        var intensityMax = $( "#sliderChannelIntensityValueMax" + layer_id ).val();
+        $('[id^="layer-block"]').each(function(i, obj) {
+            var curr_layer_id = obj.id.substring(11);
+            if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                $( "#sliderChannelIntensity" + curr_layer_id ).slider( "option", "values", [ intensityMin, intensityMax ] );
+                $( "#sliderChannelIntensityValueMin" + curr_layer_id ).val( intensityMin);
+                $( "#sliderChannelIntensityValueMax" + curr_layer_id ).val( intensityMax);
+                applyIntensitySlider(curr_layer_id,intensityMin, intensityMax);
+            }
+        });
+        {% endif %}
+   }
+
+   function applyIntensitySlider(layerId, min, max) {
+      index = layerArray.get(layerId.toString());
+      channelImgs[index].v_minvalue = parseFloat(min) / parseFloat(bitDepth);
+      channelImgs[index].v_maxvalue = parseFloat(bitDepth) / parseFloat(max);
+      adjustImage(channelImgs[index]);
+      if (channelImgsTiles.length > 0) {
+         for (j = 0; j < channelImgsTiles[index].length; j++) {
+            if (channelImgsTiles[index][j] != null) {
+               channelImgsTiles[index][j].v_minvalue = channelImgs[index].v_minvalue;
+               channelImgsTiles[index][j].v_maxvalue = channelImgs[index].v_maxvalue;
+               adjustImage(channelImgsTiles[index][j]);
+            }
+         }
+      }
+      canvas.requestRenderAll();
+   }
+
+   function applyTransparencySlider(layerId, transparency) {
+      index = layerArray.get(layerId.toString());
+      channelImgs[index].v_transparency = transparency / 100.0;
+      adjustImage(channelImgs[index]);
+      if (channelImgsTiles.length > 0) {
+         for (j = 0; j < channelImgsTiles[index].length; j++) {
+            if (channelImgsTiles[index][j] != null) {
+               channelImgsTiles[index][j].v_transparency = channelImgs[index].v_transparency;
+               adjustImage(channelImgsTiles[index][j]);
+            }
+         }
+      }
+      canvas.requestRenderAll();
+   }
+
+   function checkRangeValue(layer_id, valueType) {
+     const isOnlyDigits = (str) => {
+       return /^\d+$/.test(str);
+     };
+     if (valueType.includes("intensity-min")) {
+        var currValue = $( "#sliderChannelIntensityValueMin" + layer_id).val();
+        if (isOnlyDigits(currValue) && parseInt(currValue) <= bitDepth) {
+          $( "#sliderChannelIntensity" + layer_id ).slider( "option", "values", [ parseInt(currValue), parseInt($( "#sliderChannelIntensityValueMax" + layer_id ).val()) ] );
+          $( "#sliderChannelIntensity" + layer_id ).data("ui-slider")._slide(null, { values: [ parseInt(currValue), parseInt($( "#sliderChannelIntensityValueMax" + layer_id ).val()) ] });
+        }
+     } else if (valueType.includes("intensity-max")) {
+        var currValue = $( "#sliderChannelIntensityValueMax" + layer_id).val();
+        if (isOnlyDigits(currValue) && parseInt(currValue) <= bitDepth) {
+          $( "#sliderChannelIntensity" + layer_id).slider( "option", "values", [ parseInt($( "#sliderChannelIntensityValueMin" + layer_id ).val()), parseInt(currValue) ] );
+          $( "#sliderChannelIntensity" + layer_id ).data("ui-slider")._slide(null, { values: [ parseInt($( "#sliderChannelIntensityValueMin" + layer_id ).val()), parseInt(currValue) ] });
+        }
+     } else if (valueType.includes("transparency")) {
+        var currValue = $( "#sliderChannelTransparencyValue" + layer_id).val();
+        if (isOnlyDigits(currValue) && parseInt(currValue) <= 100) {
+          $( "#sliderChannelTransparency" + layer_id).slider( "option", "value", parseInt(currValue));
+          $( "#sliderChannelTransparency" + layer_id ).data("ui-slider")._slide(null, { value: parseInt(currValue) });
+        }
+     }
+   }
+
+   $('[id^="layer-controls"]').each(function(i, obj) {
+      var curr_layer_id = obj.id.substring(14);
+      var currBitDepth = parseInt($("#sliderChannelIntensity" + (curr_layer_id)).attr("bitDepth"));
+      $( "#sliderChannelIntensity" + (curr_layer_id) ).slider({
+         range: true,
+         min: 0,
+         max: currBitDepth,
+         values: [ 0, currBitDepth ],
+         slide: function( event, ui ) {
+            if (!retexturing) {
+               if (Date.now() > sliderTimeout + sliderInterval) {
+                  sliderTimeout = Date.now();
+                  var layerId = parseInt(this.id.replace("sliderChannelIntensity", ""));
+                  $( "#sliderChannelIntensityValueMin" + layerId ).val( ui.values[ 0 ]);
+                  $( "#sliderChannelIntensityValueMax" + layerId ).val( ui.values[ 1 ]);
+                  applyIntensitySlider(layerId, ui.values[ 0 ], ui.values[ 1 ]);
+
+                 {% if group_layers and  groupcontrols %}
+                 var base_layer_name = $("#layer-block" + layerId).attr("layer_name").replace($("#layer-block" + layerId).attr("group_name"), "");
+                 $('[id^="layer-block"]').each(function(i, obj) {
+                     var curr_layer_id = obj.id.substring(11);
+                     if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                         $( "#sliderChannelIntensity" + curr_layer_id ).slider( "option", "values", [ ui.values[ 0 ], ui.values[ 1 ] ] );
+                         $( "#sliderChannelIntensityValueMin" + curr_layer_id ).val( ui.values[ 0 ]);
+                         $( "#sliderChannelIntensityValueMax" + curr_layer_id ).val( ui.values[ 1 ]);
+                         applyIntensitySlider(curr_layer_id,ui.values[ 0 ], ui.values[ 1 ]);
+                     }
+                 });
+                 {% endif %}
+               }
+            }
+         }
+      });
+      $( "#sliderChannelTransparency" + (curr_layer_id) ).slider({
+         min: 0,
+         max: 100,
+         value: 100,
+         slide: function( event, ui ) {
+            if (!retexturing) {
+               if (Date.now() > sliderTimeout + sliderInterval) {
+                  sliderTimeout = Date.now();
+                  var layerId = parseInt(this.id.replace("sliderChannelTransparency", ""));
+                  $( "#sliderChannelTransparencyValue" + layerId ).val(ui.value);
+                  applyTransparencySlider(layerId, ui.value);
+
+                  {% if group_layers and  groupcontrols %}
+                  var base_layer_name = $("#layer-block" + layerId).attr("layer_name").replace($("#layer-block" + layerId).attr("group_name"), "");
+                  $('[id^="layer-block"]').each(function(i, obj) {
+                     var curr_layer_id = obj.id.substring(11);
+                     if (obj.getAttribute("image") == 1 && obj.getAttribute("layer_name").replace(obj.getAttribute("group_name"), "") == base_layer_name) {
+                         $( "#sliderChannelTransparency" + curr_layer_id ).slider( "option", "value", ui.value);
+                         $( "#sliderChannelTransparencyValue" + curr_layer_id ).val(ui.value);
+                         applyTransparencySlider(curr_layer_id, ui.value);
+                     }
+                  });
+                  {% endif %}
+               }
+            }
+         }
+      });
+   });
+
+
+   {% if group_layers %}
+   function rotateGroupLayer(mode) {
+      var curr_group_layer = $("#layergroup-slider").slider('value');
+      if (curr_group_layer == group_layers.length - 1 && mode == 1) {
+         curr_group_layer = 0;
+      } else if (curr_group_layer == 0 && mode == -1) {
+         curr_group_layer = group_layers.length - 1;
+      } else {
+         curr_group_layer = curr_group_layer + mode;
+      }
+      if (!retexturing) {
+         $("#layergroup-slider").slider('value', curr_group_layer);
+         toggleGroupLayer(group_layers[curr_group_layer], group_names[curr_group_layer]);
+      }
+   }
+
+   function toggleGroupLayer(grouplayer_id, grouplayer_name) {
+      $("#layergroup_name").html(grouplayer_name);
+
+      $('[id^="layer-block"]').each(function(i, obj) {
+         var curr_layer_id = obj.id.substring(11);
+         if (obj.getAttribute("image") == 1) {
+            if (obj.getAttribute("parent_id") == grouplayer_id.toString()) {
+               if ($("#layer-visible" + curr_layer_id).attr("active") != "0") {
+                   $("#layer-visible" + curr_layer_id).removeClass("btn-secondary").addClass("btn-primary");
+                   $("#layer-visible" + curr_layer_id).children().first().html("visibility");
+                   toggleChannel(curr_layer_id, true);
+               }
+               $(obj).show();
+               {% if expandcontrols %}
+               toggleLayerControl(curr_layer_id, false, true);
+               {% endif %}
+               if ($("#layer-controls" + curr_layer_id).attr("active") == "1") {
+                   toggleLayerControl(curr_layer_id, false, true);
+               }
+            } else {
+               toggleChannel(curr_layer_id, false);
+               $(obj).hide();
+               toggleLayerControl(curr_layer_id, true, false);
+            }
+         }
+      });
+   }
+
+   function checkLoadedImages() {
+      if (defaultChannels != undefined && defaultChannels.length > 0 && loadedChannels >= defaultChannels.length) {
+         toggleGroupLayer(group_layers[0], group_names[0]);
+      } else {
+         setTimeout(checkLoadedImages, 500);
+      }
+   }
+
+   $( "#layergroup-slider" ).slider({
+      value: 0,
+      min: 0,
+      max: (group_layers.length - 1),
+      step: 1,
+      slide: function( event, ui ) {
+        if (!retexturing) {
+           toggleGroupLayer(group_layers[ui.value], group_names[ui.value]);
+        }
+      }
+    });
+
+    setTimeout(checkLoadedImages, 500);
+    {% endif %}
+</script>
