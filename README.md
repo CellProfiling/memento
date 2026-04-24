@@ -1,4 +1,4 @@
-# Memento
+# <img src="doc/logo.png" height="32" alt="Memento logo"> Memento
 
 Memento is a web platform for collaborative biological image annotation. It lets research teams upload microscopy images, draw regions of interest, classify samples, assign labels, and leave comments — all through a browser, with no programming required for day-to-day use.
 
@@ -45,6 +45,10 @@ Why Memento
 6. [Importing a project from a folder of images](#6-importing-a-project-from-a-folder-of-images)
 7. [Exporting your data for analysis](#7-exporting-your-data-for-analysis)
 8. [Appendix: the Memento API at a glance](#8-appendix-the-memento-api-at-a-glance)
+9. [GUI in depth](#9-gui-in-depth)
+   - [9.1 User and admin flow](#91-user-and-admin-flow)
+   - [9.2 Project management flow](#92-project-management-flow)
+   - [9.3 Viewer and annotation flow](#93-viewer-and-annotation-flow)
 
 ---
 
@@ -852,3 +856,307 @@ All requests require an authentication token obtained at login, passed as the `x
 | `provie` | View a project (read-only) |
 | `catvie` | View a category (read-only) |
 | `annvie` | View an annotation (read-only) |
+
+---
+
+## 9. GUI In-Depth
+
+This section describes the three main usage flows through the web interface. Screenshots referenced below live in `doc/screenshots/`; see [`doc/screenshots_guide.md`](doc/screenshots_guide.md) for a table listing exactly what each screenshot should capture, so you can take them at your convenience.
+
+---
+
+### 9.1 User and Admin Flow
+
+This covers the first steps any user takes: logging in, navigating the home dashboard, and (for administrators) managing accounts.
+
+#### Login
+
+Every session begins at `/memento/login`. Enter your username and password and click **Log in**. Passwords are transmitted pre-hashed — the browser handles this transparently before sending the form.
+
+![Login page](doc/screenshots/01_login.jpg)
+
+On success you are redirected to the home dashboard.
+
+#### Home dashboard
+
+The home page (`/memento/`) presents two areas:
+
+- **Work on your projects** — lists every project you have been granted access to. The grid icon next to each project name opens the [Viewer](#93-viewer-and-annotation-flow) for that project.
+- **Other actions** — visible only to administrators and project managers:
+  - **Users** (system admin only) — opens user management.
+  - **Projects** — opens project management.
+  - **Share image** — a lightweight quick-share form, independent of any project (see [9.2](#92-project-management-flow)).
+
+![Home dashboard](doc/screenshots/02_home.jpg)
+
+#### Change password
+
+Click your username (top-right corner, visible on every page) to reach the change-password form. All users can change their own password at any time.
+
+#### User management (administrator only)
+
+From Home → **Users**, the manage-users page offers two actions:
+
+- **Manage an existing user** — choose a username from the dropdown and click the icon to open that user's profile. The edit-user page lets you rename the account, reset the password, adjust system-level permissions (`sysadm`, `proadm`), or delete the account entirely.
+- **Create a new user** — click the person-add icon to open the new-user form. Only a username and initial password are required.
+
+![Manage users page](doc/screenshots/03_manage_users.jpg)
+
+---
+
+### 9.2 Project Management Flow
+
+This flow is used by project owners and system administrators to set up experiments and prepare them for annotators. Regular participants do not see any of these pages.
+
+#### The projects hub
+
+From Home → **Projects**, the manage-projects page lets you:
+
+- **Manage an existing project** — select from the dropdown and click the dashboard icon to open the project editor.
+- **Create a new project** — click the customize icon; enter a name and confirm.
+
+![Projects hub](doc/screenshots/04_manage_projects.jpg)
+
+#### The project editor
+
+This is the central management page for a project. It is organized into several sections.
+
+**Edit project**
+Rename the project or update its settings string, then click **Update**.
+
+The settings string is a comma-separated list of `key:value` pairs that control viewer behaviour for all annotators on this project. All keys are optional; omit any key to use the default.
+
+| Key | Values | Effect |
+|---|---|---|
+| `darkmode` | `1` | Canvas starts in dark mode (black background). |
+| `clastype` | `i` (default) / `l` | Show the active classification as an **icon** badge in the sidebar (`i`) or a **letter** (`l`). |
+| `defaultlayer` | layer sequence number | Pre-selects the given layer when opening any annotation. |
+| `expandannotation` | `1` | Label panel slides open automatically on annotation load. |
+| `expandclassification` | `1` | Classification panel slides open automatically on annotation load. |
+| `expandlayer` | `1` | Layer panel slides open automatically on annotation load. |
+| `expandcomment` | `1` | Comment panel slides open automatically on annotation load. |
+| `expandcontrols` | `1` | Intensity/transparency controls are expanded by default for every layer. |
+| `fastannotation` | `1` | Enables keyboard shortcuts in the label panel: keys `1`–`9` select labels, and submitting automatically advances to the next sample. |
+| `annotationexclusive` | `1` | Selecting a label deselects all others (radio-button behaviour). |
+| `classificationexclusive` | `1` | Only one classification option can be active at a time. |
+| `groupcontrols` | `1` | For annotations with layer groups (z-stack / time-series), intensity and transparency sliders stay in sync across matching channel names in different groups. |
+
+Example: `fastannotation:1,annotationexclusive:1,expandannotation:1,darkmode:1`
+
+**Remove project**
+Permanently deletes the project and all its content (categories, annotations, images, layers, comments). A confirmation dialog is shown first.
+
+**Other info**
+A live overview of the project, with clickable links to every sub-resource:
+
+| Sub-resource | What you can do here |
+|---|---|
+| **Participants** | Users who can annotate. Click any name to edit or revoke their access; click **Add participant** to invite a new one. For large projects the list collapses into an autocomplete search field. |
+| **Viewers** | Read-only access users (they see the viewer but cannot submit labels). Same add/edit pattern as participants. |
+| **Annotation labels** | Short outcome keywords (e.g. `"positive"`, `"artifact"`, `"exclude"`). Click any label to rename or delete it; click **Add label** to create a new one. These appear as buttons in the annotation viewer. |
+| **Categories** | Biological groups within the project. Click a category name to enter its editor, where you can also manage the annotations it contains and link classifications to it. Click **Add category** to create one. |
+| **Classifications** | Structured scoring options (e.g. `"Grade 1"`, `"Grade 2"`, `"Grade 3"`). Created here at the project level, then linked to specific categories in the category editor. |
+| **Images** | The raw image files uploaded to the project. Images are shared across the project — upload once and reuse in multiple annotations. Click **Add image** to upload a new file (with format selection) or register an external URL. |
+
+Below the sub-resource lists, counters show: total participants, total annotations, submitted annotations, and shared annotations — a quick health check on annotation progress.
+
+![Project editor](doc/screenshots/05_edit_project.jpg)
+
+**Export**
+At the bottom of the project editor, one-click export buttons are available — no scripting required:
+
+| Data | Format | Contents |
+|---|---|---|
+| Annotation data | CSV or JSON | One row per annotation: project, category, classification, annotation name, image, status (`N`/`S`), label, image URI |
+| Comments | JSON | All layer comments across the project |
+| ROIs | JSON | All drawn regions of interest in Fabric.js format |
+
+![Project editor — export section](doc/screenshots/05b_edit_project_export.jpg)
+
+#### Category editor
+
+Reached by clicking any category name in the project editor. Here you can:
+
+- Rename the category.
+- Update the category's settings string. Category settings use the same `key:value` comma-separated format as project settings, but apply only to the thumbnail grid view for that category:
+
+  | Key | Values | Effect |
+  |---|---|---|
+  | `forcerow` | integer | Forces exactly N thumbnails per row in the image grid. |
+  | `names` | `hidden` | Hides annotation name labels below thumbnails. |
+  | `darkmode` | `1` | Thumbnail grid area starts in dark mode (overrides the project-level setting). |
+
+- Link one or more **classifications** to it — these become the scoring buttons annotators see when this category is active in the viewer.
+- Browse and manage **annotations**: add new ones (specifying an image and initial layer), edit existing ones (rename, reassign), or delete them.
+
+#### Quick image sharing
+
+From Home → **Share image**, the `ft_share_image` form lets you share a single image without creating a project:
+
+- Enter a display name.
+- Upload a file (with format choice) **or** paste a remote URL.
+- Click **Share**. A progress bar tracks the upload, then a processing indicator appears while the server tiles the image. On completion, a shareable link is displayed.
+
+This is useful for quickly sharing a microscopy image with a collaborator without any project overhead.
+
+![Share image form](doc/screenshots/06_ft_share_image.jpg)
+
+---
+
+### 9.3 Viewer and Annotation Flow
+
+This is the page annotators spend most of their time on. It is reached from the home dashboard by clicking the **grid icon** next to a project name. The viewer is a single-page application — switching between categories and annotations never triggers a full page reload.
+
+![Viewer full overview](doc/screenshots/07_viewer_overview.jpg)
+
+The viewer has four persistent zones:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Navbar  (logo · username · logout)                         │
+├─────────────────────────────────────────────────────────────┤
+│  [Label / classification panel]  ← top, collapsible        │
+├──────────┬──────────────────────────────┬───────────────────┤
+│  Left    │      Central canvas          │  Right layer panel│
+│ sidebar  │  (image or thumbnail grid)   │  (collapsible)    │
+├──────────┴──────────────────────────────┴───────────────────┤
+│  [Comment panel]  ← bottom, collapsible                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Left sidebar — navigation
+
+The sidebar lists all categories you have access to. Clicking a category:
+
+- Highlights it in the sidebar.
+- Loads a **thumbnail grid** of that category's annotations into the central area.
+- Expands an annotation sub-list beneath the category name (loaded on demand).
+
+Each annotation entry in the expanded sub-list can carry three status badges:
+
+| Badge | Meaning |
+|---|---|
+| `fact_check` icon | The annotation has project labels defined but has not been submitted yet. |
+| `notes` icon | The annotation has at least one comment on any of its layers. |
+| `share` icon | A temporary anonymous share link is currently active for this annotation. |
+
+The **Next** button at the top of the sidebar advances automatically through annotations that still need labelling (those with the `fact_check` badge). This lets annotators work through a batch without any manual navigation.
+
+![Sidebar with categories and annotation list](doc/screenshots/08_viewer_sidebar.jpg)
+
+#### Thumbnail grid (category view)
+
+When a category is selected but no individual annotation is active yet, the central area shows a thumbnail grid — one card per annotation, showing a preview image and the annotation name. Click any card to load that annotation into the canvas.
+
+![Thumbnail grid](doc/screenshots/09_image_grid.jpg)
+
+#### Image canvas (annotation view)
+
+Clicking a thumbnail (or a sidebar entry) loads the annotation. The canvas is powered by WebGL via Fabric.js. Basic navigation:
+
+- **Pan**: click and drag anywhere.
+- **Zoom**: scroll wheel. The current zoom level is shown in the floating info indicator (top right of the canvas area).
+- **Large (pyramidal) images**: tiles are fetched and composited progressively as you zoom in. A "Retexturing…" label appears briefly while replacement tiles load at higher resolution.
+
+Floating action buttons appear at the top right of the canvas:
+
+| Icon | Action |
+|---|---|
+| `draw` | Activate draw mode for ROI annotation (becomes amber when active; only visible when a drawing layer is selected). |
+| `save` | Save the current drawing layer to the server (visible only while draw mode is active). |
+| `dark_mode` | Toggle the canvas background between light grey and black — useful when viewing fluorescence channels on a dark background. |
+| `download` | Export the current canvas view as a PNG image. |
+| `share` | Generate (or revoke) a temporary anonymous share URL for this annotation. Turns amber when a share is active. |
+| `link` | Copy the share URL to the clipboard; opens a dialog confirming the URL was copied. Appears only when a share is active. |
+
+![Image canvas with annotation loaded](doc/screenshots/10_viewer_canvas.jpg)
+
+#### Layer panel (right side)
+
+Click the **←** arrow on the right edge of the canvas to open the layer panel. The panel lists every layer in the current annotation.
+
+**Image layers** (associated with an uploaded image):
+
+- **Eye icon** — toggle layer visibility. The icon turns grey and shows `visibility_off` when hidden.
+- **Layer name** — click to select this as the active layer for ROI drawing and comments.
+- **Notes icon** — appears when the layer has at least one comment.
+- **Expand arrow** — opens per-layer display controls:
+  - **Auto-adjust** (exposure icon) — computes the 1st–99th percentile of pixel values from a canvas sample and applies optimal brightness/contrast automatically.
+  - **Intensity range slider** — dual-handle slider for black-point and white-point clipping. Min and max values can also be typed directly into the adjacent input fields.
+  - **Transparency slider** — sets layer opacity from 0 to 100 %. Type a value directly or drag the slider.
+
+**Drawing layers** (annotation canvases without an image):
+
+- Listed at the top of the layer list.
+- **Eye icon** — show/hide the drawing canvas overlay.
+- **Delete** (red `layers_clear` icon) — permanently removes the layer and all its ROI data after a confirmation prompt. Only the layer owner can delete.
+- Selecting a drawing layer activates the draw controls in the canvas floating actions.
+
+**Layer groups** (z-stacks or time-series):
+
+When an annotation has multiple layer groups (e.g. different z-planes), **← / → navigation buttons** and a **slider** appear in the layer panel, letting you step through groups. If group-controls mode is on, intensity and transparency sliders stay synchronized across matching channel names in different groups.
+
+**Layer settings**: each image layer has its own settings string (set via the layer editor in the admin flow). The one active key is:
+
+| Key | Values | Effect |
+|---|---|---|
+| `bitDepth` | integer (e.g. `8`, `12`, `16`) | Bit depth of the channel as a power of 2. Sets the intensity slider maximum to 2ⁿ−1 (255 for 8-bit, 4095 for 12-bit, 65535 for 16-bit). Defaults to 8-bit if omitted. |
+
+**Adding a drawing layer**: at the bottom of the panel, type a name in the input field and click the add icon (`library_add`). The new drawing canvas is created immediately and added to the canvas stack.
+
+![Layer panel](doc/screenshots/11_layer_panel.jpg)
+
+#### Label panel and submission
+
+If the project has **annotation labels** defined, a collapsible bar appears above the canvas. Each label is a toggle button:
+
+- **Grey** — not selected.
+- **Amber / yellow** — selected.
+
+Click any label to toggle it. When the project is configured for **exclusive labelling**, selecting a label automatically deselects any previously active one.
+
+Click **Submit** to record your choices and mark the annotation as reviewed (status `S`). The button briefly flashes green on success and the annotation is removed from the Next queue.
+
+**Fast annotation mode** (optional, configured per-project): the number keys `1`–`9` map to the first nine labels. Pressing a number key selects that label, submits, and advances to the next unannotated sample automatically — useful for rapid scoring of large batches.
+
+![Label panel with submit button](doc/screenshots/12_label_panel.jpg)
+
+#### Classification panel
+
+If the active category has **classifications** linked to it, the top panel shows classification buttons instead of (or alongside) labels. Select one or more options and click **Classify** to record the score. The sidebar reflects the current classification with a small icon or letter badge next to the category name, so you can scan the score distribution at a glance without opening individual annotations.
+
+![Classification panel](doc/screenshots/13_classification_panel.jpg)
+
+#### Drawing ROIs
+
+To draw a region of interest on a sample:
+
+1. In the layer panel, click a **drawing layer** (no image icon, listed at the top). The layer becomes highlighted.
+2. Click the **draw** icon in the floating action bar — it turns amber to confirm draw mode is active.
+3. A **colour picker** and a **Fill** checkbox appear in the sub-actions area. Choose your stroke and fill settings.
+4. Click on the canvas to lay down polygon vertices. The shape closes when you click back on the first point (a small circle marks the starting vertex).
+5. Click the **save** icon to persist the ROI geometry to the server.
+
+Completed ROIs appear in a small table at the top right of the canvas (index and a select icon). Clicking a row focuses that ROI on the canvas. Selecting a shape on canvas exposes a **red delete control** (×) at its corner.
+
+Drawn ROIs can be exported later as JSON via the project editor or via the Python client (`project_rois()`).
+
+![ROI drawing mode active](doc/screenshots/14_roi_drawing.jpg)
+
+#### Comments
+
+Click the **↑** expand arrow at the bottom edge of the canvas to open the comment panel. Comments are **per-layer** — the panel reloads automatically when you select a different layer from the layer panel.
+
+- **Edit** (pencil icon) — update the text of one of your own comments.
+- **Delete** (speaker-notes-off icon) — permanently remove one of your own comments after a confirmation prompt.
+- **Add a new comment** — type in the text area and click the add icon (`post_add`). The comment appears in the panel immediately and the notes badge activates on the layer name and on the annotation entry in the sidebar.
+
+![Comment panel](doc/screenshots/15_comment_panel.jpg)
+
+#### Sharing a single annotation
+
+Click the **share** icon in the canvas floating actions to generate a temporary anonymous URL for the current annotation. The icon turns amber. Click the **link** icon to copy the URL and see it in a confirmation dialog — paste it into an email or message to give someone view-only access with no login required.
+
+Recipients who open the link see a stripped-down `viewer_limited` page for that single annotation: the image canvas, the layer panel (read-only), and any existing comments are visible, but they cannot submit labels or edit anything.
+
+Clicking the share icon again revokes the URL — the share badge in the sidebar disappears.
