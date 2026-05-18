@@ -28,6 +28,8 @@ DEBUG = int(os.environ.get("MEMENTO_DJANGO_DEBUG", "0"))
 
 ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = ['https://lundberglab.stanford.edu']
+
 
 # Application definition
 

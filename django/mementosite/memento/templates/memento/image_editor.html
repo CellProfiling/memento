@@ -265,6 +265,7 @@ function loadChannelImage(img_index, layer_id, img_id, img_url_orig, img_url, im
                dataCanvasArray.get(key).requestRenderAll();
             }
          }
+         updateMemoryIndicator();
          loadedChannels = loadedChannels + 1;
       },{ crossOrigin: 'anonymous' });
    })(img_index, img_url);
@@ -345,6 +346,31 @@ function scheduleRetexture() {
    }
 }
 
+function updateMemoryIndicator() {
+   var bytes = 0;
+   for (var ci = 0; ci < channelImgs.length; ci++) {
+      var img = channelImgs[ci];
+      if (img != null && typeof img === 'object' && img.getElement) {
+         var el = img.getElement();
+         var w = el ? (el.naturalWidth || el.width || 0) : 0;
+         var h = el ? (el.naturalHeight || el.height || 0) : 0;
+         bytes += w * h * 4;
+      }
+   }
+   for (var ci = 0; ci < channelImgsTiles.length; ci++) {
+      var tiles = channelImgsTiles[ci];
+      if (tiles == null) continue;
+      for (var ti = 0; ti < tiles.length; ti++) {
+         if (tiles[ti] != null) {
+            bytes += 1024 * 1024 * 4;
+         }
+      }
+   }
+   var mb = (bytes / (1024 * 1024)).toFixed(0);
+   var el = document.getElementById("memory-value");
+   if (el) el.textContent = "~" + mb + " MB";
+}
+
 function retexture_tiles(){
    retextureScheduled = false;
    if (!retexturing && tilesToRetexture.length > 0) {
@@ -397,6 +423,7 @@ function retexture_tiles(){
                         if (texturedImage.indexOf("_x0_y0") > 0) {
                            imgLevelRetextured.push(imageIndex + "_" + zdim);
                         }
+                        render_deepest_level();
                      }
                      tilesToRetexture.splice(0, 1);
                      retexture_tiles();
@@ -412,6 +439,7 @@ function retexture_tiles(){
       })(texturedImage);
    } else {
       document.getElementById("retexturing-indicator").style.display = "none";
+      render_deepest_level();
       if (retexturing) {
          scheduleRetexture();
       }
@@ -419,53 +447,58 @@ function retexture_tiles(){
 }
 
 function render_deepest_level() {
-   for (i = 0; i < channelImgsLevel.length; i++) {
-   var currChannelLevel = channelImgsLevel[i]
-   if (currChannelLevel != null && currChannelLevel * 2 > minTileResolution / 1024) {
-      zdim = 1024 * (currChannelLevel);
-      if (imgLevelRetextured.includes(i + "_" + (zdim / 2)) || tilesToRetexture.length == 0) {
-         retexturing = true;
-         var pyramidIndex = 0;
-         var currzdim = maxzdim;
-         while (zdim / 1024 != currzdim) {
-            currzdim = currzdim / 2;
-            pyramidIndex = pyramidIndex + 1;
-         }
-         for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
-            for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
-               tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
-               if (channelImgsTiles[i][tile_index] != null) {
-                  channelImgsTiles[i][tile_index].opacity = (channelImgs[i].layer_img_visible == "visible" ? 1.0 : 0.0);
+   var anyChanged;
+   do {
+      anyChanged = false;
+      for (i = 0; i < channelImgsLevel.length; i++) {
+         var currChannelLevel = channelImgsLevel[i]
+         if (currChannelLevel != null && currChannelLevel * 2 > minTileResolution / 1024) {
+            zdim = 1024 * (currChannelLevel);
+            if (imgLevelRetextured.includes(i + "_" + (zdim / 2)) || tilesToRetexture.length == 0) {
+               retexturing = true;
+               var pyramidIndex = 0;
+               var currzdim = maxzdim;
+               while (zdim / 1024 != currzdim) {
+                  currzdim = currzdim / 2;
+                  pyramidIndex = pyramidIndex + 1;
                }
-            }
-         }
-         if (currChannelLevel == maxzdim) {
-            channelImgs[i].opacity = 0.0;
-         } else {
-            pyramidIndex = pyramidIndex - 1;
-            for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
-               for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
-                  tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
-                  if (channelImgsTiles[i][tile_index] != null) {
-                     channelImgsTiles[i][tile_index].opacity = 0.0;
-                     canvas.remove(channelImgsTiles[i][tile_index]);
-                     delete channelImgsTiles[i][tile_index];
+               for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
+                  for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
+                     tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
+                     if (channelImgsTiles[i][tile_index] != null) {
+                        channelImgsTiles[i][tile_index].opacity = (channelImgs[i].layer_img_visible == "visible" ? 1.0 : 0.0);
+                     }
                   }
                }
+               if (currChannelLevel == maxzdim) {
+                  channelImgs[i].opacity = 0.0;
+               } else {
+                  pyramidIndex = pyramidIndex - 1;
+                  for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
+                     for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
+                        tile_index = pyramidInfo[pyramidIndex][1] + x * pyramidInfo[pyramidIndex][0] + y;
+                        if (channelImgsTiles[i][tile_index] != null) {
+                           channelImgsTiles[i][tile_index].opacity = 0.0;
+                           channelImgsTiles[i][tile_index].dispose();
+                           canvas.remove(channelImgsTiles[i][tile_index]);
+                           delete channelImgsTiles[i][tile_index];
+                        }
+                     }
+                  }
+               }
+               channelImgsLevel[i] = Math.floor(currChannelLevel / 2);
+               var index = imgLevelRetextured.indexOf(i + "_" + (zdim / 2));
+               if (index > -1) {
+                  imgLevelRetextured.splice(index, 1);
+               }
+               retexturing = false;
+               anyChanged = true;
             }
          }
-         channelImgsLevel[i] = Math.floor(currChannelLevel / 2);
-         canvas.requestRenderAll();
-         var index = imgLevelRetextured.indexOf(i + "_" + (zdim / 2));
-         if (index > -1) {
-            imgLevelRetextured.splice(index, 1);
-         }
-
-         retexturing = false;
       }
-   }
-   }
-
+   } while (anyChanged);
+   updateMemoryIndicator();
+   requestAnimationFrame(function() { canvas.renderAll(); });
 }
 
 function retexture_image(img_index) {
@@ -526,7 +559,12 @@ function toggleChannel(layer_id, state) {
                      pyramidIndex = pyramidIndex + 1;
                   }
                } else {
-                  pyramidIndex = 4;
+                  var tempzdim = maxzdim;
+                  var targetzdim = minTileResolution / 1024;
+                  while (targetzdim != tempzdim) {
+                     tempzdim = tempzdim / 2;
+                     pyramidIndex = pyramidIndex + 1;
+                  }
                }
                for (x = 0; x < pyramidInfo[pyramidIndex][0]; x++) {
                   for (y = 0; y < pyramidInfo[pyramidIndex][0]; y++) {
@@ -1085,6 +1123,7 @@ function renderIcon(ctx, left, top, styleOverride, fabricObject) {
       <hr id="zoom-bar" class="separator"/>
    </div>
    <span id="retexturing-indicator" style="color:#ff8800; margin-left: 10px; text-align:right;">Retexturing...</span>
+   <span id="memory-value" style="color:#aaaaaa; margin-left: 10px; font-size:12px;"></span>
 </div>
 <div id="canvas-roi-table" style="display:none;">
    <table class="roi-table">

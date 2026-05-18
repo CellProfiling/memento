@@ -97,7 +97,7 @@ def login():
     token = jwt.encode({'user_id': user['user_id'],
                         'exp': (time.time() + 86400)},
                        app.config['MEMENTO_FLASK_AUTH_TOKEN_KEY'])
-    return jsonify({'token': token.decode('UTF-8')}), 200
+    return jsonify({'token': token}), 200
 
 
 @app.route('/memento/users', methods=['GET'])
@@ -175,7 +175,7 @@ def delete_user(user_id):
 @token_required
 def get_user_byusername(username):
     conn = get_conn()
-    sql = sqla.select([model.users.c.user_id, model.users.c.username, model.users.c.name, model.users.c.email, model.users.c.settings]). \
+    sql = sqla.select([model.users.c.user_id, model.users.c.username, model.users.c.name, model.users.c.email, model.users.c.settings, model.users.c.password]). \
         where(model.users.c.username == username)
     result = conn.execute(sql)
     if result.rowcount == 0:
@@ -1428,20 +1428,20 @@ def project_summary(project_id):
                 model.annotations.c.project_id == project_id)))
     participants_subq = sqla.union(propar_q, catpar_q, annpar_q).alias('participants')
     result = conn.execute(sqla.select([sqla.func.count()]).select_from(participants_subq))
-    new_project_summary['total_participants'] = result.scalar()
+    new_project_summary['total_participants'] = int(result.scalar() or 0)
 
     # Count annotations in a single pass using conditional aggregation.
     ann = model.annotations
     sql = sqla.select([
         sqla.func.count().label('total'),
-        sqla.func.sum(sqla.case([(ann.c.status == 'S', 1)], else_=0)).label('submitted'),
-        sqla.func.sum(sqla.case([(ann.c.shared != '', 1)], else_=0)).label('shared'),
+        sqla.func.sum(sqla.case((ann.c.status == 'S', 1), else_=0)).label('submitted'),
+        sqla.func.sum(sqla.case((ann.c.shared != '', 1), else_=0)).label('shared'),
     ]).where(ann.c.project_id == project_id)
     result = conn.execute(sql)
     row = result.first()
-    new_project_summary['total_annotations'] = row['total']
-    new_project_summary['total_annotations_submitted'] = row['submitted']
-    new_project_summary['total_annotations_shared'] = row['shared']
+    new_project_summary['total_annotations'] = int(row['total'] or 0)
+    new_project_summary['total_annotations_submitted'] = int(row['submitted'] or 0)
+    new_project_summary['total_annotations_shared'] = int(row['shared'] or 0)
 
     return jsonify(new_project_summary), 200
 

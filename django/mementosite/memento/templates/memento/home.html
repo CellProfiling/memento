@@ -14,7 +14,7 @@
          {% for project in projects %}
          <div>
             <p>{{ project.name }}</p>
-            <a href="{% url'viewer' %}?project_id={{ project.id }}"><i class="material-icons-outlined main-container-category-icon">grid_view</i></a>
+            <a href="{% url 'viewer' %}?project_id={{ project.id }}"><i class="material-icons-outlined main-container-category-icon">grid_view</i></a>
          </div>
          {% endfor %}
       </div>
@@ -31,17 +31,17 @@
          {% if is_sysadm %}
          <div>
             <p>Users</p>
-            <a href="{% url'manage_users' %}"><i class="material-icons-outlined main-container-category-icon">manage_accounts</i></a>
+            <a href="{% url 'manage_users' %}"><i class="material-icons-outlined main-container-category-icon">manage_accounts</i></a>
          </div>
          {% endif %}
          {% if is_sysadm or is_proadm %}
          <div>
             <p>Projects</p>
-            <a href="{% url'manage_projects' %}"><i class="material-icons-outlined main-container-category-icon">dashboard_customize</i></a>
+            <a href="{% url 'manage_projects' %}"><i class="material-icons-outlined main-container-category-icon">dashboard_customize</i></a>
          </div>
          <div>
             <p>Share image</p>
-            <a href="{% url'ft_share_image' %}"><i class="material-icons-outlined main-container-category-icon">quickreply</i></a>
+            <a href="{% url 'ft_share_image' %}"><i class="material-icons-outlined main-container-category-icon">quickreply</i></a>
          </div>
          {% endif %}
       </div>

@@ -12,7 +12,7 @@ MarkupSafe==1.1.1
 mysql-connector-python==8.0.23
 Pillow==10.3.0
 protobuf==3.15.6
-pyjwt==1.4.2
+pyjwt==2.8.0
 six==1.15.0
 SQLAlchemy==1.4.2
 typing-extensions==3.7.4.3

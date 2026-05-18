@@ -635,11 +635,17 @@ def edit_project(request):
                 context['images'] = images
 
         response = requestAPI(request.user.username, "GET", 'utilities/project_summary/' + str(project_id))
-        project_data = response.json()
-        context['total_participants'] = project_data['total_participants']
-        context['total_annotations'] = project_data['total_annotations']
-        context['total_annotations_submitted'] = project_data['total_annotations_submitted']
-        context['total_annotations_shared'] = project_data['total_annotations_shared']
+        if response.status_code == 200:
+            project_data = response.json()
+            context['total_participants'] = project_data['total_participants']
+            context['total_annotations'] = project_data['total_annotations']
+            context['total_annotations_submitted'] = project_data['total_annotations_submitted']
+            context['total_annotations_shared'] = project_data['total_annotations_shared']
+        else:
+            context['total_participants'] = 0
+            context['total_annotations'] = 0
+            context['total_annotations_submitted'] = 0
+            context['total_annotations_shared'] = 0
 
         return render(request, 'memento/edit_project.html', context)
     if request.method == 'POST':
@@ -782,22 +788,22 @@ def export_data(request):
 
     structured_data = {}
     for curr_data_row in project_data:
-        curr_cat = curr_data_row['c2']
+        curr_cat = curr_data_row['category']
         if curr_cat not in structured_data.keys():
             structured_data[curr_cat] = {}
             structured_data[curr_cat]['classifications'] = []
             structured_data[curr_cat]['annotations'] = {}
-        curr_cla = curr_data_row['c3']
+        curr_cla = curr_data_row['classification']
         if curr_cla not in structured_data[curr_cat]['classifications']:
             structured_data[curr_cat]['classifications'].append(curr_cla)
-        curr_ann = curr_data_row['c4']
+        curr_ann = curr_data_row['annotation']
         if curr_ann not in structured_data[curr_cat]['annotations'].keys():
             structured_data[curr_cat]['annotations'][curr_ann] = {}
-            structured_data[curr_cat]['annotations'][curr_ann]['image'] = curr_data_row['c5']
-            structured_data[curr_cat]['annotations'][curr_ann]['submitted'] = curr_data_row['c6']
-            structured_data[curr_cat]['annotations'][curr_ann]['uri'] = curr_data_row['c8']
-            structured_data[curr_cat]['annotations'][curr_ann]['labels'] = []
-        curr_label = curr_data_row['c7']
+            structured_data[curr_cat]['annotations'][curr_ann]['image'] = curr_data_row['image']
+            structured_data[curr_cat]['annotations'][curr_ann]['submitted'] = curr_data_row['status']
+            structured_data[curr_cat]['annotations'][curr_ann]['uri'] = curr_data_row['image_uri']
+            structured_data[curr_data_row['category']]['annotations'][curr_ann]['labels'] = []
+        curr_label = curr_data_row['label']
         if curr_label not in structured_data[curr_cat]['annotations'][curr_ann]['labels']:
             structured_data[curr_cat]['annotations'][curr_ann]['labels'].append(curr_label)
 
@@ -884,10 +890,10 @@ def export_comments(request):
 
     file_data = {}
     for curr_comment_row in project_comments:
-        curr_cat = curr_comment_row['c2']
-        curr_ann = curr_comment_row['c3']
-        curr_lay = curr_comment_row['c4']
-        curr_com = curr_comment_row['c5']
+        curr_cat = curr_comment_row['category']
+        curr_ann = curr_comment_row['annotation']
+        curr_lay = curr_comment_row['layer']
+        curr_com = curr_comment_row['content']
         if (not curr_cat in file_data):
             file_data[curr_cat] = {}
         if (not curr_ann in file_data[curr_cat]):
@@ -928,10 +934,10 @@ def export_rois(request):
 
     file_data = {}
     for curr_roi_row in project_rois:
-        curr_cat = curr_roi_row['c2']
-        curr_ann = curr_roi_row['c3']
-        curr_lay = curr_roi_row['c4']
-        curr_roi = curr_roi_row['c5']
+        curr_cat = curr_roi_row['category']
+        curr_ann = curr_roi_row['annotation']
+        curr_lay = curr_roi_row['layer']
+        curr_roi = curr_roi_row['data']
         if (not curr_cat in file_data):
             file_data[curr_cat] = {}
         if (not curr_ann in file_data[curr_cat]):
